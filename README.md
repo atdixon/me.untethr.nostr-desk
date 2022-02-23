@@ -15,6 +15,8 @@ Pre-requisites:
 $ brew install clojure/tools/clojure
 ```
 
+May need to install some java/jdk, say v. 17
+
 How to run:
 
 ```
