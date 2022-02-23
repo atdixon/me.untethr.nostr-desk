@@ -1,0 +1,69 @@
+* {
+    -nd-basic-border-color: #aaa;
+    -nd-hover-background-color: #eee;
+    -nd-timeline-item-pubkey: rgb(0,151,167);
+}
+
+.ndesk-lhs-pane {
+    -fx-pref-width: 275;
+    -fx-border-color: transparent -nd-basic-border-color transparent transparent;
+    -fx-padding: 5px;
+}
+
+.ndesk-keycard {
+    -fx-padding: 5px;
+    -fx-border-insets: 2px;
+    -fx-background-insets: 5px;
+    -fx-border-color: -nd-basic-border-color;
+}
+
+.ndesk-keycard-active {
+    -fx-border-width: 5px;
+}
+
+.ndesk-keycard:hover {
+    -fx-background-color: -nd-hover-background-color;
+}
+
+.ndesk-keycard-photo {
+    -fx-alignment: center;
+    -fx-font-size: 24pt;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+}
+
+.ndesk-keycard-pubkey {
+    -fx-min-height: 50;
+    -fx-padding: 0 10px;
+}
+
+.ndesk-keycard-about {
+    -fx-padding: 3px;
+}
+
+.ndesk-status-bar {
+    -fx-border-color: -nd-basic-border-color transparent transparent transparent;
+}
+
+.ndesk-table-view {
+    -fx-border-color: -nd-basic-border-color;
+}
+
+.ndesk-timeline-item-photo {
+    -fx-alignment: center;
+    -fx-font-size: 12pt;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+}
+
+.ndesk-timeline-item-pubkey {
+    -fx-font-size: 10pt;
+    -fx-font-weight: bold;
+    -fx-text-fill: -nd-timeline-item-pubkey;
+    -fx-padding: 3px;
+}
+
+.ndesk-timeline-item-content {
+    -fx-font-size: 12pt;
+    -fx-padding: 3px;
+}

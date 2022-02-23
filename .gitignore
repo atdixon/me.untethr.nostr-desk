@@ -1,0 +1,10 @@
+.cpcache/
+dist/
+.idea/
+*.iml
+# only root pom.xml should be excluded not java-ext/pom.xml
+/pom.xml
+*.dmg
+target/
+.nrepl-port
+classes/

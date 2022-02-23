@@ -1,0 +1,55 @@
+TODO how to do threading
+
+NEXT UP: why does root not stay in timeline !?!?!?!
+
+* on-contact-list-updated:
+    -- removal should remove events from active mem timeline
+    -- addition should load events from db???
+        -- and THEN update subscriptions
+    -- ^^allow these to order sequentially with each other so no race??
+* on-identity-added:
+    -- load from db...then:
+    -- update subscriptions (at what watermark?)
+* on-new-event:
+    -- idempotent add to timeline if > timeline-ux-watermark ???
+* on-scroll down
+    -- update timeline-ux-watermark and load range from db
+* on-profile-edit:
+    -- ?
+
+TODO unified method for metadata handling
+    - non-loading cache
+    - on startup populate with identities
+        (replace current bimodal ways)
+    - on load initial timeline
+    - ...AND whenever see relevant metadata event
+    -       ...refresh timelines somehow to pick up
+
+TODO are we seeing consume-verify truly de-duplicate all events
+    ...and are we getting all events from relays?
+
+TODO are timestamps correct in local time zone
+
+TODO wlvs eg keeps reconnecting so we keep resubscribing
+    ...may wish to rate limit how often we reconnect? (eg twice every minute?)
+
+TODO any time we parse :content (for say contact-list) ...must handle parse exceptions always?
+
+on-startup
+    - determine watermark for subscriptions and establish subscriptions
+    - query N most recent from db and send through on-event
+
+
+
+
+- subscription -> ordered buffer
+    ...walk back months?
+- manage multiple accounts
+-
+- * ...
+
+
+-- shutdown ... gracefully shuts down thread pools, cxn manager, etc!
+
+
+- github: me.untethr.nostr-desktop
