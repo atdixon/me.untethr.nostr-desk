@@ -56,16 +56,17 @@
                 :alignment :top-left
                 :text (util/format-pubkey-short public-key)}
          :right {:fx/type :hyperlink :text "X"
-                 :on-action {:fx/event :delete-keycard :identity identity}}}
+                 :on-action {:event/type :delete-keycard :identity identity}}}
         {:fx/type :label
          :style-class "ndesk-keycard-about"
          :text about}]}]}))
 
 (defn keycard-create-new
-  [{:keys [show-new-identity?]}]
+  [{:keys [show-new-identity? new-identity-error]}]
   {:fx/type fx/ext-let-refs
    :refs {:dialog {:fx/type view-new-identity/dialog
-                   :show-new-identity? show-new-identity?}}
+                   :show-new-identity? show-new-identity?
+                   :new-identity-error new-identity-error}}
    :desc {:fx/type :h-box
           :cursor :hand
           :style-class ["ndesk-keycard"]
@@ -114,7 +115,8 @@
             "Search" {:fx/type search}})})
 
 (defn keycards
-  [{:keys [active-key identities identity-metadata show-new-identity?]}]
+  [{:keys [active-key identities identity-metadata show-new-identity?
+           new-identity-error]}]
   {:fx/type :v-box
    :style-class "ndesk-lhs-pane"
    :children (vec
@@ -128,7 +130,8 @@
                       :this-identity-metadata (get identity-metadata (:public-key %)))
                    identities)
                  [{:fx/type keycard-create-new
-                   :show-new-identity? show-new-identity?}]))})
+                   :show-new-identity? show-new-identity?
+                   :new-identity-error new-identity-error}]))})
 
 (defn relay-dot
   [{:keys [connected-info] {:keys [url read? write?] :as _relay} :relay}]
@@ -190,13 +193,15 @@
            :connected-info connected-info}})
 
 (defn root [{:keys [show-relays? active-key identities identity-metadata relays
-                    refresh-relays-ts connected-info home-ux show-new-identity?]}]
+                    refresh-relays-ts connected-info home-ux show-new-identity?
+                    new-identity-error]}]
   {:fx/type :border-pane
    :left {:fx/type keycards
           :active-key active-key
           :identities identities
           :identity-metadata identity-metadata
-          :show-new-identity? show-new-identity?}
+          :show-new-identity? show-new-identity?
+          :new-identity-error new-identity-error}
    :center {:fx/type tab-pane :home-ux home-ux}
    :bottom {:fx/type status-bar
             :show-relays? show-relays?
@@ -205,7 +210,8 @@
             :connected-info connected-info}})
 
 (defn stage [{:keys [show-relays? active-key identities identity-metadata relays
-                     refresh-relays-ts connected-info home-ux show-new-identity?]}]
+                     refresh-relays-ts connected-info home-ux show-new-identity?
+                     new-identity-error]}]
   {:fx/type :stage
    :showing true
    :title "nostr desk"
@@ -217,6 +223,7 @@
     :root {:fx/type root
            :show-relays? show-relays?
            :show-new-identity? show-new-identity?
+           :new-identity-error new-identity-error
            :active-key active-key
            :identities identities
            :identity-metadata identity-metadata

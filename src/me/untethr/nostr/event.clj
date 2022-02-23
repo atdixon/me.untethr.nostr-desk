@@ -5,7 +5,8 @@
     [me.untethr.nostr.modal :as modal]
     [me.untethr.nostr.relay-conn :as relay-conn]
     [me.untethr.nostr.store :as store]
-    [me.untethr.nostr.timeline :as timeline])
+    [me.untethr.nostr.timeline :as timeline]
+    [me.untethr.nostr.x.crypt :as crypt])
   (:import (javafx.scene.control DialogEvent Dialog)))
 
 (defn relay-defaults
@@ -19,20 +20,13 @@
       (timeline/update-active-timeline! *state public-key))]])
 
 (defn show-new-identity-effect
-  [_]
+  [show-new-identity?]
   [[:bg
     (fn [*state _db _dispatch!]
-      (swap! *state assoc
-        :show-new-identity? true))]])
-
-(defn new-identity-close-request
-  [{^DialogEvent dialog-event :fx/event}]
-  (let [dialog-result (.getResult ^Dialog (.getSource dialog-event))]
-    (condp = dialog-result
-      [[:bg
-        (fn [*state _db _dispatch!]
-          (swap! *state assoc
-            :show-new-identity? false))]])))
+      (swap! *state
+        (fn [curr-state]
+          (cond-> (assoc curr-state :show-new-identity? show-new-identity?)
+            (not show-new-identity?) (assoc :new-identity-error "")))))]])
 
 (defn delete-keycard
   [{:keys [identity]}]
@@ -45,6 +39,42 @@
         ;; todo dissoc state
         ;; todo update subscriptions
         )]]))
+
+(defn add-identity-and-close-dialog-effect
+  [public-key maybe-private-key]
+  (log/info "WOULD ADD" public-key maybe-private-key)
+  ;; todo aota
+  )
+
+(defn new-identity-close-request
+  [{^DialogEvent dialog-event :fx/event}]
+  (let [^Dialog dialog (.getSource dialog-event)
+        dialog-result (.getResult dialog)]
+    (condp = dialog-result
+      :cancel
+      (show-new-identity-effect false)
+      (let [{:keys [val public?]} dialog-result]
+        (cond
+          (not= (count val) 64)
+          (do
+            (.consume dialog-event) ;; prevents dialog closure
+            [[:bg (fn [*state _db _dispatch!]
+                    (swap! *state assoc
+                      :new-identity-error "Key must be 64 characters"))]])
+          public?
+          (add-identity-and-close-dialog-effect val nil)
+          :else
+          (if-let [corresponding-pubkey
+                   (some-> val
+                     crypt/hex-decode
+                     crypt/generate-pubkey
+                     crypt/hex-encode)]
+            (add-identity-and-close-dialog-effect corresponding-pubkey val)
+            (do
+              (.consume dialog-event) ;; prevents dialog closure
+              [[:bg (fn [*state _db _dispatch!]
+                      (swap! *state assoc
+                        :new-identity-error "Bad private key"))]])))))))
 
 (defn replace-relays-effect
   [new-relays show-relays?]
@@ -86,8 +116,9 @@
   [{:event/keys [type] :as event}]
   (case type
     :click-keycard (click-keycard event)
-    :show-new-identity (show-new-identity-effect event)
+    :show-new-identity (show-new-identity-effect true)
     :new-identity-close-request (new-identity-close-request event)
     :delete-keycard (delete-keycard event)
     :show-relays (show-relays-effect true)
-    :relays-close-request (relays-close-request event)))
+    :relays-close-request (relays-close-request event)
+    (log/error "no matching clause" type)))

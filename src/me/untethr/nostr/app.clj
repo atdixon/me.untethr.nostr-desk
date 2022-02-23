@@ -44,6 +44,7 @@
   (atom
     {:show-relays? false
      :show-new-identity? false
+     :new-identity-error ""
      :identities [] ;; [domain/Identity]
      :identity-metadata {}
      :contact-lists {} ;; pubkey -> domain/ContactList
