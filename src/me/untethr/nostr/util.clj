@@ -2,7 +2,8 @@
   (:require [clojure.tools.logging :as log])
   (:import (java.util Random Date)
            (java.text SimpleDateFormat)
-           (java.util.function BiFunction)))
+           (java.util.function BiFunction)
+           (java.util.concurrent ScheduledExecutorService TimeUnit)))
 
 (defn rand-hex-color
   [seed]
@@ -41,3 +42,19 @@
   (reify BiFunction
     (apply [_ t u]
       (f t u))))
+
+(defn concatv
+  [& colls]
+  (vec (apply concat colls)))
+
+(defn schedule!
+  [^ScheduledExecutorService executor ^Runnable f ^long delay]
+  (.schedule executor (wrap-exc-fn f) delay TimeUnit/MILLISECONDS))
+
+(defn schedule-with-fixed-delay!
+  [^ScheduledExecutorService executor ^Runnable f ^long initial-delay ^long delay]
+  (.scheduleWithFixedDelay executor (wrap-exc-fn f) initial-delay delay TimeUnit/MILLISECONDS))
+
+(defn submit!
+  [^ScheduledExecutorService executor ^Runnable f]
+  (.submit executor (wrap-exc-fn f)))

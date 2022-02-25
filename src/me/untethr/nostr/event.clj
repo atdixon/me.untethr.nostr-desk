@@ -1,12 +1,15 @@
 (ns me.untethr.nostr.event
   (:require
-    [clojure.java.io :as io]
-    [clojure.tools.logging :as log]
-    [me.untethr.nostr.modal :as modal]
-    [me.untethr.nostr.relay-conn :as relay-conn]
-    [me.untethr.nostr.store :as store]
-    [me.untethr.nostr.timeline :as timeline]
-    [me.untethr.nostr.x.crypt :as crypt])
+   [clojure.java.io :as io]
+   [clojure.tools.logging :as log]
+   [me.untethr.nostr.modal :as modal]
+   [me.untethr.nostr.relay-conn :as relay-conn]
+   [me.untethr.nostr.store :as store]
+   [me.untethr.nostr.timeline :as timeline]
+   [me.untethr.nostr.x.crypt :as crypt]
+   [me.untethr.nostr.hydrate :as hydrate]
+   [me.untethr.nostr.domain :as domain]
+   [me.untethr.nostr.util :as util])
   (:import (javafx.scene.control DialogEvent Dialog)))
 
 (defn relay-defaults
@@ -16,35 +19,40 @@
 (defn click-keycard
   [{:keys [public-key]}]
   [[:bg
-    (fn [*state _db _dispatch!]
+    (fn [*state _db _exec _dispatch!]
       (timeline/update-active-timeline! *state public-key))]])
 
 (defn show-new-identity-effect
   [show-new-identity?]
   [[:bg
-    (fn [*state _db _dispatch!]
+    (fn [*state _db _exec _dispatch!]
       (swap! *state
         (fn [curr-state]
           (cond-> (assoc curr-state :show-new-identity? show-new-identity?)
             (not show-new-identity?) (assoc :new-identity-error "")))))]])
 
 (defn delete-keycard
-  [{:keys [identity]}]
+  [{:keys [identity_]}]
   (when (modal/blocking-yes-no-alert "" "Are you sure?")
     [[:bg
-      (fn [*state db _dispatch!]
-        (log/info "delete-keycard (TODO)")
-        ;; todo change active timeline (possibly to empty)
-        ;; todo (store/delete-identity! db identity)
-        ;; todo dissoc state
-        ;; todo update subscriptions
-        )]]))
+      (fn [*state db executor _dispatch!]
+        (store/delete-identity! db (:public-key identity_))
+        (let [{curr-identities :identities} @*state]
+          (when (some #(= (:public-key identity_) (:public-key %)) curr-identities)
+            (hydrate/dehydrate! *state db executor [identity_]))))]]))
 
 (defn add-identity-and-close-dialog-effect
   [public-key maybe-private-key]
-  (log/info "WOULD ADD" public-key maybe-private-key)
-  ;; todo aota
-  )
+  (util/concatv
+    (show-new-identity-effect false)
+    [[:bg
+      (fn [*state db executor _dispatch!]
+        (store/insert-identity! db public-key maybe-private-key) ;; idempotent
+        (let [{curr-identities :identities} @*state]
+          ;; don't hydrate identity if it's already hydrated
+          (when-not (some #(= public-key (:public-key %)) curr-identities)
+            (hydrate/hydrate! *state db executor
+              [(domain/->Identity public-key maybe-private-key)]))))]]))
 
 (defn new-identity-close-request
   [{^DialogEvent dialog-event :fx/event}]
@@ -58,7 +66,7 @@
           (not= (count val) 64)
           (do
             (.consume dialog-event) ;; prevents dialog closure
-            [[:bg (fn [*state _db _dispatch!]
+            [[:bg (fn [*state _db _exec _dispatch!]
                     (swap! *state assoc
                       :new-identity-error "Key must be 64 characters"))]])
           public?
@@ -72,14 +80,14 @@
             (add-identity-and-close-dialog-effect corresponding-pubkey val)
             (do
               (.consume dialog-event) ;; prevents dialog closure
-              [[:bg (fn [*state _db _dispatch!]
+              [[:bg (fn [*state _db _exec _dispatch!]
                       (swap! *state assoc
                         :new-identity-error "Bad private key"))]])))))))
 
 (defn replace-relays-effect
   [new-relays show-relays?]
   [[:bg
-    (fn [*state db _dispatch!]
+    (fn [*state db _exec _dispatch!]
       (swap! *state
         assoc
         :relays (store/replace-relays! db new-relays)

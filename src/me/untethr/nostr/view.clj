@@ -21,7 +21,8 @@
 
 (defn keycard
   [{:keys [active?]
-    {:keys [public-key] :as identity} :identity
+    {:keys [public-key] :as identity_} :identity_
+    ;; possibly nil:
     {:keys [name about picture-url nip05-id]} :this-identity-metadata}]
   (let [avatar-dim 75.0
         avatar-color (avatar/color public-key)]
@@ -56,10 +57,10 @@
                 :alignment :top-left
                 :text (util/format-pubkey-short public-key)}
          :right {:fx/type :hyperlink :text "X"
-                 :on-action {:event/type :delete-keycard :identity identity}}}
+                 :on-action {:event/type :delete-keycard :identity_ identity_}}}
         {:fx/type :label
          :style-class "ndesk-keycard-about"
-         :text about}]}]}))
+         :text (or about "")}]}]}))
 
 (defn keycard-create-new
   [{:keys [show-new-identity? new-identity-error]}]
@@ -126,7 +127,7 @@
                       :fx/type keycard
                       :fx/key (:public-key %)
                       :active? (= active-key (:public-key %))
-                      :identity %
+                      :identity_ %
                       :this-identity-metadata (get identity-metadata (:public-key %)))
                    identities)
                  [{:fx/type keycard-create-new

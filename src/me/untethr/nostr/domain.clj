@@ -1,5 +1,25 @@
 (ns me.untethr.nostr.domain)
 
+(defn initial-state
+  []
+  {:show-relays? false
+   :show-new-identity? false
+   :new-identity-error ""
+   :identities [] ;; [domain/Identity]
+   :identity-metadata {} ;; pubkey ->
+   :contact-lists {} ;; pubkey -> domain/ContactList
+   :relays [] ;; [domain/Relay]
+   :connected-info {}
+   ;; note: changes to active-key and mutations to home-ux, timelines
+   ;;   must be done w/in mutex--ie on fx thread!
+   :active-key nil
+   :home-ux nil
+   :identity-timeline {} ;; pubkey -> Timeline
+   :timeline-watermarks {} ;; todo ? combine w/ ^^
+   })
+
+;; --
+
 (defrecord Identity
   [public-key secret-key])
 
@@ -17,6 +37,9 @@
 
 (defrecord UITextNote
   [id pubkey #_... content timestamp e-tags children])
+
+(defrecord UITextNoteWrapper
+  [loom-graph expanded? note-count max-timestamp ^UITextNote root])
 
 ;; --
 

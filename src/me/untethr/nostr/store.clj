@@ -84,6 +84,27 @@
       (jdbc/execute! db
         (vec
           (concat
+            [(str/join " UNION "
+               (repeat (count pubkeys)
+                 (str
+                   ;; @see https://stackoverflow.com/questions/4696947/sql-select-with-union-order-by-and-limit
+                   "select * from ("
+                   "select e.raw_event_tuple from n_events e"
+                   " left join p_tags p on e.id = p.source_event_id"
+                   "    and p.tagged_pubkey = ?"
+                   " where (e.pubkey = ? or p.tagged_pubkey = ?) and kind = 1"
+                   ;; todo consider " order by created_at desc limit 500"
+                   ")")))]
+            (interleave pubkeys pubkeys pubkeys)))
+        {:builder-fn rs/as-unqualified-lower-maps}))))
+
+(defn ^:deprecated load-timeline-events-
+  [db pubkeys]
+  (when-not (empty? pubkeys)
+    (mapv (comp raw-event-tuple->event-obj :raw_event_tuple)
+      (jdbc/execute! db
+        (vec
+          (concat
             [(format
                (str
                  "select raw_event_tuple from n_events where id in ("
@@ -206,7 +227,14 @@
     ["insert or ignore into signature_event_id (event_id, signature_) values (?,?)"
      event-id sig]))
 
+(defn insert-identity!
+  [db public-key secret-key]
+  ;; secret-key could be nil
+  (jdbc/execute-one! db
+    ["insert or ignore into identities_ (public_key, secret_key) values (?,?)"
+     public-key secret-key]))
+
 (defn delete-identity!
-  [db {:keys [public-key]}]
+  [db public-key]
   (jdbc/execute-one! db
     ["delete from identities_ where public_key = ?" public-key]))

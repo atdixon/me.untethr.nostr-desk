@@ -5,7 +5,6 @@
    [clojure.tools.logging :as log]
    [loom.graph :as loom]
    [loom.attr :as loom-attr]
-   [loom.derived :as loom-der]
    [me.untethr.nostr.domain :as domain]
    [me.untethr.nostr.parse :as parse]
    [me.untethr.nostr.util :as util]
@@ -13,16 +12,16 @@
   (:import (javafx.collections FXCollections ObservableList)
            (javafx.collections.transformation SortedList)
            (java.util HashMap)
-           (me.untethr.nostr.domain UITextNote)
+           (me.untethr.nostr.domain UITextNote UITextNoteWrapper)
            (javafx.scene.control ListView)))
 
 (defrecord Timeline
   ;; these field values are only ever mutated on fx thread
   [^SortedList sorted-list
-   ^ObservableList observable-list
+   ^ObservableList observable-list ;; contains UITextNoteWrapper
    ;; id -> index (for child events may point to same index); *all* events are represented in this map
    ^HashMap item-id->index
-   ;;
+   ;; ...
    ^HashMap tagged-id->tagger-ids])
 
 (defn new-timeline
@@ -31,8 +30,8 @@
     (->Timeline
       (.sorted
         observable-list
-        ;; latest entries first:
-        (comparator #(< (:timestamp %2) (:timestamp %1))))
+        ;; latest wrapper entries first:
+        (comparator #(< (:max-timestamp %2) (:max-timestamp %1))))
       observable-list
       (HashMap.)
       (HashMap.))))
@@ -44,15 +43,16 @@
         ;; consider: optimization--not having to create contact set each note
         contact-keys-set (into #{} (map :public-key) parsed-contacts)
         ptag-keys-set (set (parse/parse-ptag-keys* event-obj))]
-    (or
-      ;; identity's own note
-      (= pubkey identity-pubkey)
-      ;; the text-note's pubkey matches an identity's contact
-      (contact-keys-set pubkey)
-      ;; the text-note's ptags reference identity itself
-      (ptag-keys-set identity-pubkey)
-      ;; the text-note's ptags references one of identities contacts
-      (not-empty (set/intersection contact-keys-set ptag-keys-set)))))
+    (doto
+     (or
+       ;; identity's own note
+       (= pubkey identity-pubkey)
+       ;; the text-note's pubkey matches an identity's contact
+       (contact-keys-set pubkey)
+       ;; the text-note's ptags reference identity itself
+       (ptag-keys-set identity-pubkey)
+       ;; the text-note's ptags references one of identities contacts
+       (not-empty (set/intersection contact-keys-set ptag-keys-set))))))
 
 (defn contribute*
   [G {:keys [id timestamp e-tags] :as ^UITextNote node}]
@@ -66,7 +66,10 @@
                  ;; note: here we create a shell note; a vagary of our impl is that we
                  ;; inherit the timestamp of the node that originates us. this allows us
                  ;; to make heuristics over our graph where timestamps are never nil.
-                 :ux-elem (domain/->UITextNote %2 nil "<missing>" timestamp nil nil))) G e-tags)]
+                 :ux-elem (domain/->UITextNote
+                            ;; nil pubkey is what indicates this is a shell
+                            %2 nil (format "<missing:%s>" %2)
+                            timestamp nil nil))) G e-tags)]
     G))
 
 (defn node->note*
@@ -87,8 +90,8 @@
        (loom-attr/add-attr node :ux-elem new-note)) seen-next new-note]))
 
 (defn rotate*
-  ^UITextNote [^UITextNote curr-item ^UITextNote new-item]
-  (let [G (contribute* (::graph (meta curr-item)) new-item)
+  ^UITextNoteWrapper [^UITextNoteWrapper wrapper ^UITextNote new-item]
+  (let [G (contribute* (:loom-graph wrapper) new-item)
         node->successors (into {} (map (juxt identity (partial loom/successors G))) (loom/nodes G))
         likely-root-last (fn [G]
                            (juxt
@@ -107,12 +110,13 @@
         use-root (last (sort-by (likely-root-last G) G-roots))
         [_ _ note] (node->note* G-shed #{use-root} use-root)]
     ;; retain un-shed graph on exit
-    (with-meta note {::graph G})))
+    (domain/->UITextNoteWrapper
+      G (:expanded? wrapper) (count (loom/nodes G)) (max (:max-timestamp wrapper) (:timestamp new-item)) note)))
 
-(defn init-note
-  [{:keys [id pubkey created_at content] :as _event-obj} pre-parsed-etags]
-  (let [init (domain/->UITextNote id pubkey content created_at pre-parsed-etags [])]
-    (with-meta init {::graph (contribute* (loom/digraph) init)})))
+(defn init-wrapper
+  [^UITextNote note]
+  (let [G (contribute* (loom/digraph) note)]
+    (domain/->UITextNoteWrapper G false (count (loom/nodes G)) (:timestamp note) note)))
 
 (defn dispatch-text-note!
   [*state {:keys [id pubkey created_at content] :as event-obj}]
@@ -123,11 +127,17 @@
       (doseq [[identity-pubkey timeline] identity-timeline]
         (let [{:keys [^ObservableList observable-list
                       ^HashMap item-id->index
-                      ^HashMap tagged-id->tagger-ids]} timeline]
-          (when-not (.containsKey ^HashMap item-id->index id)
+                      ^HashMap tagged-id->tagger-ids]} timeline
+              ;; if we've never seen the note or the note is a shell, then
+              ;; this will be nil:
+              existing-note-pubkey (some->>
+                                     (.get ^HashMap item-id->index id)
+                                     (.get observable-list)
+                                     :pubkey)]
+          (when-not (some? existing-note-pubkey)
             (when (accept-text-note? *state identity-pubkey event-obj)
               (let [etag-ids (parse/parse-etag-ids* event-obj)
-                    ^UITextNote new-item (init-note event-obj etag-ids)
+                    ^UITextNote new-item (domain/->UITextNote id pubkey content created_at etag-ids [])
                     id-closure (cons id etag-ids)
                     all-tagger-ids (mapcat #(.get tagged-id->tagger-ids %) id-closure)
                     [curr-id curr-idx]
@@ -141,19 +151,38 @@
                   (.merge tagged-id->tagger-ids etag-id [id]
                     (util/->BiFunction #(concat %1 %2))))
                 (if (some? curr-id)
-                  (let [new-item (rotate* (.get observable-list curr-idx) new-item)]
+                  (let [new-wrapper (rotate* (.get observable-list curr-idx) new-item)]
                     (.put item-id->index id curr-idx)
-                    ;; needed? -> (.put item-id->index (:id new-item) curr-idx)
-                    (.set observable-list curr-idx new-item))
-                  (do
+                    ;; this is necessary b/c rotate* can originate <missing> notes:
+                    (when-let [root-id (-> new-wrapper :root :id)]
+                      (.put item-id->index root-id curr-idx))
+                    (.set observable-list curr-idx new-wrapper))
+                  (let [init-wrapper (init-wrapper new-item)]
                     (.put item-id->index id (.size observable-list))
-                    (.add observable-list new-item)))))))))))
+                    (.add observable-list init-wrapper)))))))))))
+
+(defn toggle!
+  [*state id]
+  (let [{:keys [active-key identity-timeline]} @*state
+        ^Timeline active-timeline (get identity-timeline active-key)
+        {:keys [^ObservableList observable-list
+                ^HashMap item-id->index]} active-timeline]
+    (fx/run-later
+      (try
+        (when-let [item-index (.get item-id->index id)]
+          (when-let [^UITextNoteWrapper wrapper (.get observable-list item-index)]
+            (.set observable-list item-index
+              (update wrapper :expanded? #(not %)))))
+        (catch Exception e
+          (log/error 'toggle! e))))))
 
 (defn update-active-timeline!
-  [*state public-key]
+  [*state public-key] ;; note public-key may be nil!
   (fx/on-fx-thread
     (swap! *state
       (fn [{:keys [^ListView home-ux identity-timeline] :as curr-state}]
         (.setItems home-ux
-          ^SortedList (:sorted-list (get identity-timeline public-key)))
+          ^ObservableList (or
+                            (:sorted-list (get identity-timeline public-key))
+                            (FXCollections/emptyObservableList)))
         (assoc curr-state :active-key public-key)))))

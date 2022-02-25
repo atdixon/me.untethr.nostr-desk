@@ -5,7 +5,6 @@
    [clojure.tools.logging :as log]))
 
 ;; todo ultimately may need to partition whale-of-pubkeys
-
 (defn whale-of-pubkeys*
   [pubkeys contact-lists]
   (let [contact-pubkeys (mapcat #(map :public-key (:parsed-contacts %)) (vals contact-lists))]
