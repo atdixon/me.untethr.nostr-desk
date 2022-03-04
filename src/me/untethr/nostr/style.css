@@ -6,7 +6,8 @@
 * {
     -nd-basic-border-color: #aaa;
     -nd-hover-background-color: #eee;
-    -nd-timeline-item-pubkey: rgb(0,151,167);
+    -nd-timeline-item-pubkey: #0097a7;
+    -nd-timeline-item-name: #e64a19;
 }
 
 .hyperlink {
@@ -63,6 +64,13 @@
     -fx-font-size: 12pt;
     -fx-font-weight: bold;
     -fx-text-fill: white;
+}
+
+.ndesk-timeline-item-name {
+    -fx-font-size: 10pt;
+    -fx-font-weight: bold;
+    -fx-text-fill: -nd-timeline-item-name;
+    -fx-padding: 3px;
 }
 
 .ndesk-timeline-item-pubkey {

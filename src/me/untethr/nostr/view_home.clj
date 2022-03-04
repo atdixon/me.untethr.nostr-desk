@@ -5,13 +5,13 @@
    [me.untethr.nostr.domain]
    [me.untethr.nostr.links :as links]
    [me.untethr.nostr.metadata :as metadata]
-   [me.untethr.nostr.style :as style :refer [BORDER|]]
+   [me.untethr.nostr.style :refer [BORDER|]]
    [me.untethr.nostr.rich-text :as rich-text]
-   [me.untethr.nostr.timeline :as timeline]
    [me.untethr.nostr.util :as util]
    [me.untethr.nostr.cache :as cache]
    [me.untethr.nostr.avatar :as avatar]
    [me.untethr.nostr.util-fx :as util-fx]
+   [me.untethr.nostr.util-fx-more :as util-fx-more]
    [me.untethr.nostr.util-java :as util-java])
   (:import
    (me.untethr.nostr.domain UITextNote UITextNoteWrapper)
@@ -73,7 +73,7 @@
   [{:keys [^UITextNote item-data metadata-cache]}]
   (let [pubkey (:pubkey item-data)
         pubkey-for-avatar (or (some-> pubkey (subs 0 3)) "?")
-        _pubkey-short (or (some-> pubkey util/format-pubkey-short) "?")
+        pubkey-short (or (some-> pubkey util/format-pubkey-short) "?")
         timestamp (:timestamp item-data)
         content (:content item-data)
         {:keys [name about picture-url nip05-id created-at]} (some->> pubkey (metadata/get* metadata-cache))
@@ -93,9 +93,13 @@
      :center {:fx/type :border-pane
               :top {:fx/type :border-pane
                     :border-pane/margin (Insets. 0.0 5.0 0.0 5.0)
-                    :left {:fx/type :label
-                           :style-class "ndesk-timeline-item-pubkey"
-                           :text pubkey #_pubkey-short}
+                    :left {:fx/type :h-box
+                           :children [{:fx/type :label
+                                       :style-class "ndesk-timeline-item-name"
+                                       :text name}
+                                      {:fx/type :label
+                                       :style-class "ndesk-timeline-item-pubkey"
+                                       :text pubkey-short}]}
                     :right {:fx/type :label
                             :text (or (some-> timestamp util/format-timestamp) "?")}}
               :bottom {:fx/type timeline-item-content :content content}}}))
@@ -151,15 +155,17 @@
                             (timeline/toggle! *state (-> note-wrapper :root :id)))}])))})))
 
 (defn home [{:keys [metadata-cache *state]}]
-  {:fx/type :list-view
-   :focus-traversable false
-   :cell-factory {:fx/cell-type :list-cell
-                  :describe (fn [note-wrapper]
-                              {:graphic
-                               {:fx/type tree*
-                                :note-wrapper note-wrapper
-                                :metadata-cache metadata-cache
-                                :*state *state}})}})
+  {:fx/type fx/ext-on-instance-lifecycle
+   :on-created #(.setSelectionModel % util-fx-more/no-selection-model)
+   :desc {:fx/type :list-view
+          :focus-traversable false
+          :cell-factory {:fx/cell-type :list-cell
+                         :describe (fn [note-wrapper]
+                                     {:graphic
+                                      {:fx/type tree*
+                                       :note-wrapper note-wrapper
+                                       :metadata-cache metadata-cache
+                                       :*state *state}})}}})
 
 (defn create-list-view
   ^ListView [*state metadata-cache _executor]
