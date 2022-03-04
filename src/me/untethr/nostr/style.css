@@ -1,7 +1,16 @@
+@font-face {
+    font-family: 'Roboto';
+    src: url('/me/untethr/nostr/font/Roboto-Regular.ttf');
+}
+
 * {
     -nd-basic-border-color: #aaa;
     -nd-hover-background-color: #eee;
     -nd-timeline-item-pubkey: rgb(0,151,167);
+}
+
+.hyperlink {
+    -fx-fill: blue;
 }
 
 .ndesk-lhs-pane {
@@ -63,7 +72,13 @@
     -fx-padding: 3px;
 }
 
+.ndesk-timeline-item-content-outer {
+    -fx-padding: 10px;
+}
+
 .ndesk-timeline-item-content {
+    -fx-font-family: "Roboto";
     -fx-font-size: 12pt;
-    -fx-padding: 3px;
+    -fx-padding: 0;
+    -fx-background-color: transparent;
 }

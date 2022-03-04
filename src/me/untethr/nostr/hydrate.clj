@@ -2,7 +2,8 @@
   (:require [me.untethr.nostr.util :as util]
             [me.untethr.nostr.store :as store]
             [me.untethr.nostr.timeline :as timeline]
-            [me.untethr.nostr.subscribe :as subscribe])
+            [me.untethr.nostr.subscribe :as subscribe]
+            [clojure.tools.logging :as log])
   (:import (java.util.concurrent ScheduledExecutorService)))
 
 (defn- hydrate-contact-lists!
@@ -52,10 +53,10 @@
               (let [{remaining-identities :identities :as curr-state'}
                     (update curr-state :identities
                       #(remove (comp dead-public-keys-set :public-key) %))
-                    curr-active-key-is-dead?
+                    curr-active-key-is-still-alive?
                     (some #(= (:public-key %) curr-active-key) remaining-identities)]
                 (cond-> curr-state'
-                  curr-active-key-is-dead?
+                  (not curr-active-key-is-still-alive?)
                   ;; note: could result in nil new active-key:
                   (assoc :active-key (:public-key (first remaining-identities)))
                   true
@@ -63,8 +64,7 @@
                   true
                   (update :identity-timeline #(apply dissoc % dead-public-keys-set))
                   true
-                  (update :contact-lists #(apply dissoc % dead-public-keys-set)))
-                )))]
+                  (update :contact-lists #(apply dissoc % dead-public-keys-set))))))]
       (timeline/update-active-timeline! *state new-active-key)
       ;; todo note: this means we are resubscribing -- def should optimize w/ some kind of watermark strat.
       (subscribe/overwrite-subscriptions! new-identities new-contact-lists))))

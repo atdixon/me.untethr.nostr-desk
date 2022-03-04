@@ -3,7 +3,10 @@
   (:import (java.util Random Date)
            (java.text SimpleDateFormat)
            (java.util.function BiFunction)
-           (java.util.concurrent ScheduledExecutorService TimeUnit)))
+           (java.util.concurrent ScheduledExecutorService TimeUnit)
+           (java.time ZonedDateTime Instant)
+           (java.awt Desktop)
+           (java.net URI)))
 
 (defn rand-hex-color
   [seed]
@@ -37,11 +40,11 @@
   (let [sdt (SimpleDateFormat. "yyyy LLL dd h:mm a")]
     (.format sdt (Date. (long (* 1000 epoch-seconds))))))
 
-(defn ->BiFunction
-  ^BiFunction [f]
-  (reify BiFunction
-    (apply [_ t u]
-      (f t u))))
+(defn days-ago
+  ^Instant [n]
+  (-> (ZonedDateTime/now)
+    (.minusDays n)
+    .toInstant))
 
 (defn concatv
   [& colls]
@@ -58,3 +61,10 @@
 (defn submit!
   [^ScheduledExecutorService executor ^Runnable f]
   (.submit executor (wrap-exc-fn f)))
+
+(defn open-url!
+  [^String url]
+  (try
+    (.browse (Desktop/getDesktop) (URI. url))
+    (catch Exception e
+      (log/error 'open-url! (type e) (ex-message e)))))

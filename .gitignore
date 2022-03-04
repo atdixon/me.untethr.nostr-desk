@@ -9,3 +9,4 @@ target/
 .nrepl-port
 classes/
 /TODO-*.txt
+out/

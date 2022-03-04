@@ -1,3 +1,4 @@
 [#me.untethr.nostr.domain.Relay{:url "wss://nostr-relay.untethr.me", :read? true, :write? true}
  #me.untethr.nostr.domain.Relay{:url "wss://nostr-pub.wellorder.net", :read? true, :write? true}
+ #me.untethr.nostr.domain.Relay{:url "wss://relayer.fiatjaf.com", :read? true, :write? true}
  #me.untethr.nostr.domain.Relay{:url "wss://nostr.drss.io", :read? true, :write? true}]

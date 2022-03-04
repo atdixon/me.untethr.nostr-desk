@@ -37,7 +37,7 @@
     (domain/initial-state)))
 
 (defonce home-ux
-  (view-home/create-list-view *state metadata-cache))
+  (view-home/create-list-view *state metadata-cache daemon-scheduled-executor))
 
 (swap! *state assoc :home-ux home-ux)
 

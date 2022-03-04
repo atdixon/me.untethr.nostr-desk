@@ -3,18 +3,26 @@
    [cljfx.api :as fx]
    [clojure.tools.logging :as log]
    [me.untethr.nostr.domain]
+   [me.untethr.nostr.links :as links]
    [me.untethr.nostr.metadata :as metadata]
    [me.untethr.nostr.style :as style :refer [BORDER|]]
+   [me.untethr.nostr.rich-text :as rich-text]
    [me.untethr.nostr.timeline :as timeline]
    [me.untethr.nostr.util :as util]
    [me.untethr.nostr.cache :as cache]
-   [me.untethr.nostr.avatar :as avatar])
+   [me.untethr.nostr.avatar :as avatar]
+   [me.untethr.nostr.util-fx :as util-fx]
+   [me.untethr.nostr.util-java :as util-java])
   (:import
    (me.untethr.nostr.domain UITextNote UITextNoteWrapper)
-   (javafx.scene.layout Region)
-   (javafx.geometry Insets)
+   (javafx.scene.layout Region HBox Priority)
+   (javafx.geometry Insets Bounds)
    (javafx.scene.control ListView)
-   (javafx.scene.image Image)))
+   (javafx.scene.image Image)
+   (org.fxmisc.richtext GenericStyledArea)
+   (java.util Optional)
+   (javafx.event Event)
+   (javafx.scene.input ScrollEvent)))
 
 (def avatar-dim 40)
 
@@ -22,11 +30,50 @@
   {:fx/type :image-view
    :image (cache/get* avatar/image-cache [picture-url avatar-dim])})
 
+(defn create-content-node*
+  [content]
+  (let [^GenericStyledArea x (rich-text/create*)]
+    (util-fx/add-style-class! x "ndesk-timeline-item-content")
+    (HBox/setHgrow x Priority/ALWAYS)
+    (.setWrapText x true)
+    ;; @see https://github.com/FXMisc/RichTextFX/issues/674#issuecomment-429606510
+    (.setAutoHeight x true)
+    (.setMaxHeight x Integer/MAX_VALUE)
+    (.setEditable x false)
+    (.addEventFilter x
+      ScrollEvent/SCROLL
+      (util-java/->EventHandler
+        (fn [^Event e]
+          (.consume e)
+          (when-let [p (.getParent x)]
+            (.fireEvent p (.copyFor e (.getSource e) p))))))
+    (let [found (links/detect content)]
+      (loop [cursor 0 [[a b] :as found] found]
+        (if a
+          (do
+            (rich-text/append-text! x (subs content cursor a))
+            (rich-text/append-hyperlink! x (subs content a b))
+            (recur b (next found)))
+          (rich-text/append-text! x (subs content cursor (count content))))))
+    ;; shall we not argue with this? there mere presence of this listener seems
+    ;; to fix height being left rendered too short:
+    (.addListener (.totalHeightEstimateProperty x)
+      (util-java/->ChangeListener
+        (fn [_])))
+    x))
+
+(defn timeline-item-content
+  [{:keys [content]}]
+  {:fx/type :h-box
+   :style-class ["ndesk-timeline-item-content-outer"]
+   :children [{:fx/type fx/ext-instance-factory
+               :create #(create-content-node* content)}]})
+
 (defn timeline-item
-  [{:keys [^UITextNote item-data metadata-cache spacer-width]}]
+  [{:keys [^UITextNote item-data metadata-cache]}]
   (let [pubkey (:pubkey item-data)
         pubkey-for-avatar (or (some-> pubkey (subs 0 3)) "?")
-        pubkey-short (or (some-> pubkey util/format-pubkey-short) "?")
+        _pubkey-short (or (some-> pubkey util/format-pubkey-short) "?")
         timestamp (:timestamp item-data)
         content (:content item-data)
         {:keys [name about picture-url nip05-id created-at]} (some->> pubkey (metadata/get* metadata-cache))
@@ -48,15 +95,10 @@
                     :border-pane/margin (Insets. 0.0 5.0 0.0 5.0)
                     :left {:fx/type :label
                            :style-class "ndesk-timeline-item-pubkey"
-                           :text pubkey-short}
+                           :text pubkey #_pubkey-short}
                     :right {:fx/type :label
-                            :text (util/format-timestamp timestamp)}}
-              :bottom {:fx/type :label
-                       :border-pane/margin (Insets. 0.0 5.0 0.0 5.0)
-                       :max-width (- 800 spacer-width) ;; todo need different strate here; what's Region/USE_PREF_SIZE
-                       :wrap-text true
-                       :style-class "ndesk-timeline-item-content"
-                       :text content}}}))
+                            :text (or (some-> timestamp util/format-timestamp) "?")}}
+              :bottom {:fx/type timeline-item-content :content content}}}))
 
 (defn- tree-rows*
   [indent ^UITextNote item-data metadata-cache expand?]
@@ -101,7 +143,8 @@
                  root))
              metadata-cache
              expanded?)
-           (when (> note-count 1)
+           ;; this is a bad experience so far so we disable collapse altogether for now
+           #_(when (> note-count 1)
              [{:fx/type :hyperlink
                :text (if expanded? "collapse" (format "expand (%d notes)" note-count))
                :on-action (fn [_]
@@ -119,7 +162,7 @@
                                 :*state *state}})}})
 
 (defn create-list-view
-  ^ListView [*state metadata-cache]
+  ^ListView [*state metadata-cache _executor]
   (fx/instance
     (fx/create-component {:fx/type home
                           :metadata-cache metadata-cache

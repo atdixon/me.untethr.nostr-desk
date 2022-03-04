@@ -20,6 +20,7 @@
     (mapv (fn [[_ arg0 _arg1]] arg0))))
 
 (defn parse-etag-ids*
+  ;; result order should match tag order
   [{:keys [tags] :as _event-obj}]
   (->> tags
     (filter #(= "e" (first %)))
