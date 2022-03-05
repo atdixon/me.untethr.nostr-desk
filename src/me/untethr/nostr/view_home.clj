@@ -99,7 +99,7 @@
                                        :text name}
                                       {:fx/type :label
                                        :style-class "ndesk-timeline-item-pubkey"
-                                       :text pubkey-short}]}
+                                       :text pubkey}]}
                     :right {:fx/type :label
                             :text (or (some-> timestamp util/format-timestamp) "?")}}
               :bottom {:fx/type timeline-item-content :content content}}}))
