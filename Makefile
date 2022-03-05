@@ -8,6 +8,7 @@ sources: pom.xml
 .PHONY: clean
 clean:
 	rm -rf target/
+	rm -rf classes/
 
 .PHONY: test
 test:
@@ -17,15 +18,15 @@ test:
 run:
 	clj -M -m me.untethr.nostr.app
 
+.PHONY: aot
+aot:
+	mkdir -p classes
+	clj -M -e "(try (compile 'me.untethr.nostr.app) (finally (javafx.application.Platform/exit)))"
+
 .PHONY: uberjar
-uberjar:
+uberjar: aot
 	clj -M:uberdeps
 
 .PHONY: run-uberjar
 run-uberjar:
-	java -cp target/me.untethr.nostr-relay.jar \
-		clojure.main -m me.untethr.nostr.app
-
-.PHONY: deploy-archive
-deploy-archive: clean uberjar
-	tar -czvf target/me.untethr.nostr-relay.tar.gz conf/* -C target me.untethr.nostr-relay.jar
+	java -jar target/me.untethr.nostr-desk.jar

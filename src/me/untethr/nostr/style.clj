@@ -7,7 +7,7 @@
 
 (defn css
   []
-  [(cond-> (io/resource "me/untethr/nostr/style.css")
+  [(cond-> (str (io/resource "me/untethr/nostr/style.css"))
      (style-mode?) (str "?q=" (rand-int 1000000)))])
 
 (defn BORDER|

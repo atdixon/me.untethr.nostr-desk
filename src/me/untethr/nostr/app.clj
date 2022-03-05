@@ -2,7 +2,7 @@
 ;; @see https://docs.oracle.com/javafx/2/api/javafx/scene/text/FontSmoothingType.html
 (System/setProperty "prism.lcdtext" "false")
 (System/setProperty "io.netty.noUnsafe" "true") ;; ...needed w/ latest netty?
-(System/setProperty "cljfx.style.mode" "true") ;; todo
+;(System/setProperty "cljfx.style.mode" "true") ;; todo
 (ns me.untethr.nostr.app
   (:require
    [cljfx.api :as fx]
@@ -18,7 +18,9 @@
    [clojure.tools.logging :as log]
    [me.untethr.nostr.util :as util]
    [me.untethr.nostr.domain :as domain])
-  (:import (java.util.concurrent ThreadFactory Executors ScheduledExecutorService TimeUnit)))
+  (:import
+    (java.util.concurrent ThreadFactory Executors ScheduledExecutorService TimeUnit))
+  (:gen-class))
 
 (defonce db (store/init! (file-sys/db-path)))
 
