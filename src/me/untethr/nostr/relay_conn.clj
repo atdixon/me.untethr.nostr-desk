@@ -9,6 +9,7 @@
     [manifold.time :as t]))
 
 (def ^:private connect-timeout-secs 20)
+(def ^:private send-timeout-secs 10)
 
 (defrecord ReadConnection
   [relay-url
@@ -143,7 +144,7 @@
 ;; writes will be retried w/ backoff? and then failure otherwise reported upstream/to user??
 (defrecord Registry
   [sink-stream
-   write-connections-vol ;; relay-url -> nil|deferred-conn
+   write-connections-vol ;; relay-url -> deferred-conn
    read-connections-vol ;; relay-url -> opaque read conn; ie volatile<ReadConnection>
    subscriptions ;; vol<id -> [filters]>
    ])
@@ -213,10 +214,59 @@
     (doseq [[_ read-conn-vol] @(:read-connections-vol conn-registry)]
       (unsubscribe! read-conn-vol id))))
 
-(defn send-all!
-  []
-  ;;
-  )
+(defn- connect-for-write!*
+  [conn-registry relay-url]
+  (locking conn-registry
+    (let [deferred-conn (d/deferred)
+          {:keys [write-connections-vol]} conn-registry
+          _ (vswap! write-connections-vol assoc relay-url deferred-conn)]
+      (->
+        (http/websocket-client relay-url {:heartbeats {:send-after-idle 5000}})
+        ;; timeout without a timeout-val produces an d/error! that is handled
+        ;; by the d/catch below
+        (d/timeout! (* connect-timeout-secs 1000))
+        (d/chain
+          (util/wrap-exc-fn
+            (fn [raw-conn]
+              (d/success! deferred-conn raw-conn)
+              (s/on-closed raw-conn
+                (fn []
+                  (locking conn-registry
+                    (vswap! write-connections-vol dissoc relay-url))))
+              :unused)))
+        (d/catch (fn [err] (d/error! deferred-conn err)))))))
+
+(defn send!*
+  [event-obj to-relay-url]
+  (let [deferred-result (-> (d/deferred)
+                          (d/timeout! (* send-timeout-secs 1000)))]
+    (locking conn-registry
+      (let [read-connections @(:read-connections-vol conn-registry)]
+        ;; if we have a read-connection we'll use it; if not, we will
+        ;; attempt to reuse a write-conn (or create one on demand); we
+        ;; do not yet discard write conns neither immediately or after
+        ;; some time duration - something we may wish to do in the future
+        ;; just to not keep infrequently used write connections open
+        (let [use-deferred-conn
+              (if-let [read-conn-vol (get read-connections to-relay-url)]
+                (:deferred-conn @read-conn-vol)
+                ;; otherwise get or create a deferred conn for writing
+                (or
+                  (get @(:write-connections-vol conn-registry) to-relay-url)
+                  (connect-for-write!* conn-registry to-relay-url)))]
+          (d/chain use-deferred-conn
+            (fn [raw-conn]
+              (->
+                (s/put! raw-conn
+                  (json*/write-str* ["EVENT" event-obj]))
+                (d/chain
+                  (fn [_]
+                    (log/info "succeeded with" to-relay-url)
+                    (d/success! deferred-result :success!)))
+                (d/catch
+                  (fn [err]
+                    (d/error! deferred-result err)))))))))
+    deferred-result))
 
 (defn connected-info
   "Answers {relay-url <bool>}"
@@ -232,10 +282,6 @@
           (fn [[relay-url deferred-conn]]
             [relay-url (connected?* deferred-conn)])
           @(:write-connections-vol conn-registry))))))
-
-(comment
-  (System/setProperty "io.netty.noUnsafe" "true")
-  )
 
 ;; todo adjust "since" on re/connect ... "watermark" w/ Nminute lag???? or author watermark in db???
 ;; todo how to do client-side "fulfillment"?

@@ -1,16 +1,22 @@
 (ns me.untethr.nostr.event
   (:require
-   [clojure.java.io :as io]
-   [clojure.tools.logging :as log]
-   [me.untethr.nostr.modal :as modal]
-   [me.untethr.nostr.relay-conn :as relay-conn]
-   [me.untethr.nostr.store :as store]
-   [me.untethr.nostr.timeline :as timeline]
-   [me.untethr.nostr.x.crypt :as crypt]
-   [me.untethr.nostr.hydrate :as hydrate]
-   [me.untethr.nostr.domain :as domain]
-   [me.untethr.nostr.util :as util])
-  (:import (javafx.scene.control DialogEvent Dialog)))
+    [cljfx.api :as fx]
+    [clojure.java.io :as io]
+    [clojure.tools.logging :as log]
+    [clojure.string :as str]
+    [me.untethr.nostr.modal :as modal]
+    [me.untethr.nostr.relay-conn :as relay-conn]
+    [me.untethr.nostr.store :as store]
+    [me.untethr.nostr.timeline :as timeline]
+    [me.untethr.nostr.x.crypt :as crypt]
+    [me.untethr.nostr.hydrate :as hydrate]
+    [me.untethr.nostr.publish :as publish]
+    [me.untethr.nostr.domain :as domain]
+    [me.untethr.nostr.util :as util]
+    [me.untethr.nostr.util-domain :as util-domain]
+    [manifold.deferred :as d])
+  (:import (javafx.scene.control DialogEvent Dialog Button TextArea)
+           (javafx.event Event ActionEvent)))
 
 (defn relay-defaults
   []
@@ -120,6 +126,25 @@
       (show-relays-effect false)
       (replace-relays-effect dialog-result false))))
 
+(defn publish!
+  [{^ActionEvent event :fx/event}]
+  (let [^Button target (.getTarget event)
+        ^TextArea found (.lookup (.getScene target) ".ndesk-publish-box")
+        content (.getText found)]
+    (when (not-empty (str/trim content))
+      [[:bg
+        (fn [*state _db _exec _dispatch!]
+          (let [{:keys [active-key identities relays]} @*state]
+            (when-let [secret-key (util-domain/->secret-key* active-key identities)]
+              (-> (publish/publish-note! active-key secret-key content relays)
+                (d/chain
+                  (fn [_]
+                    (fx/run-later
+                      (.clear found))))
+                (d/catch
+                  (fn [e]
+                    (log/error e "error sending")))))))]])))
+
 (defn handle
   [{:event/keys [type] :as event}]
   (case type
@@ -129,4 +154,5 @@
     :delete-keycard (delete-keycard event)
     :show-relays (show-relays-effect true)
     :relays-close-request (relays-close-request event)
+    :publish! (publish! event)
     (log/error "no matching clause" type)))

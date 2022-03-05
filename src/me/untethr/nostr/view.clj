@@ -8,12 +8,15 @@
    [me.untethr.nostr.event :as ev]
    [me.untethr.nostr.style :as style :refer [BORDER|]]
    [me.untethr.nostr.util :as util]
+   [me.untethr.nostr.util-domain :as util-domain]
    [me.untethr.nostr.view-home :as view-home]
    [me.untethr.nostr.view-new-identity :as view-new-identity]
    [me.untethr.nostr.view-relays :as view-relays])
   (:import (javafx.scene.canvas Canvas)
            (javafx.scene.paint Color)
-           (javafx.geometry Pos)))
+           (javafx.geometry Pos)
+           (javafx.scene.layout VBox Priority)
+           (javafx.scene.control TextFormatter$Change)))
 
 (defn avatar [{:keys [width picture-url]}]
   {:fx/type :image-view
@@ -95,14 +98,14 @@
   {:fx/type :label
    :text "search"})
 
-(defn tab*
+(defn ^:deprecated tab*
   [[label content]]
   {:fx/type :tab
    :closable false
    :text label
    :content content})
 
-(defn tab-pane
+(defn ^:deprecated tab-pane
   [{:keys [home-ux]}]
   {:fx/type :tab-pane
    :pref-width 960
@@ -114,6 +117,52 @@
             "Messages" {:fx/type messages}
             "Profile" {:fx/type profile}
             "Search" {:fx/type search}})})
+
+;; defonce so we don't replace it on ns reload (cljfx fails if we try to)
+(defonce filter*
+  (fn [^TextFormatter$Change change]
+    ;; nil rejects the change
+    (let [new-text (-> change .getControlNewText)
+          valid? (< (count new-text) 280)]
+      (when valid?
+        change))))
+
+(defn publish-box
+  [{:keys [can-publish?]}]
+  {:fx/type :text-area
+   :disable (not can-publish?)
+   :style-class ["text-area" "ndesk-publish-box"] ;; used for .lookup
+   :prompt-text "What's on your mind?"
+   :pref-height 75
+   :wrap-text true
+   :text-formatter {:fx/type :text-formatter
+                    :value-converter :default
+                    :filter filter*}})
+
+(defn main-pane
+  [{:keys [home-ux can-publish?]}]
+  {:fx/type :v-box
+   :children
+   [{:fx/type :h-box
+     :children
+     [{:fx/type publish-box
+       :can-publish? can-publish?
+       :h-box/margin 5
+       :h-box/hgrow :always}
+      {:fx/type :label
+       :h-box/margin 5
+       :max-height Integer/MAX_VALUE
+       :graphic {:fx/type :button
+                 :on-action {:event/type :publish!}
+                 :disable (not can-publish?)
+                 :cursor :hand
+                 :style-class ["button" "ndesk-publish-button"]
+                 :style {:-fx-pref-width "8em"
+                         :-fx-pref-height "3em"}
+                 :text "Publish"}}]}
+    {:fx/type fx/ext-instance-factory
+     :create #(doto home-ux
+                (VBox/setVgrow Priority/ALWAYS))}]})
 
 (defn keycards
   [{:keys [active-key identities identity-metadata show-new-identity?
@@ -193,6 +242,10 @@
            :refresh-relays-ts refresh-relays-ts
            :connected-info connected-info}})
 
+(defn can-publish?
+  [active-key identities]
+  (some? (util-domain/->secret-key* active-key identities)))
+
 (defn root [{:keys [show-relays? active-key identities identity-metadata relays
                     refresh-relays-ts connected-info home-ux show-new-identity?
                     new-identity-error]}]
@@ -203,7 +256,8 @@
           :identity-metadata identity-metadata
           :show-new-identity? show-new-identity?
           :new-identity-error new-identity-error}
-   :center {:fx/type tab-pane :home-ux home-ux}
+   :center {:fx/type main-pane :home-ux home-ux
+            :can-publish? (can-publish? active-key identities)}
    :bottom {:fx/type status-bar
             :show-relays? show-relays?
             :relays relays

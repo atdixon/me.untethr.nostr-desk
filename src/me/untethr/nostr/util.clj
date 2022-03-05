@@ -46,6 +46,9 @@
     (.minusDays n)
     .toInstant))
 
+(defn now-epoch-second ^long []
+  (-> (Instant/now) .getEpochSecond))
+
 (defn concatv
   [& colls]
   (vec (apply concat colls)))

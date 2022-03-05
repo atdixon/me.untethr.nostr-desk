@@ -6,8 +6,9 @@
 * {
     -nd-basic-border-color: #aaa;
     -nd-hover-background-color: #eee;
-    -nd-timeline-item-pubkey: #0097a7;
-    -nd-timeline-item-name: #e64a19;
+    -nd-timeline-item-pubkey-color: #0097a7;
+    -nd-timeline-item-name-color: #e64a19;
+    -nd-publish-button-color: #2262ba;
 }
 
 .hyperlink {
@@ -69,14 +70,14 @@
 .ndesk-timeline-item-name {
     -fx-font-size: 10pt;
     -fx-font-weight: bold;
-    -fx-text-fill: -nd-timeline-item-name;
+    -fx-text-fill: -nd-timeline-item-name-color;
     -fx-padding: 3px;
 }
 
 .ndesk-timeline-item-pubkey {
     -fx-font-size: 10pt;
     -fx-font-weight: bold;
-    -fx-text-fill: -nd-timeline-item-pubkey;
+    -fx-text-fill: -nd-timeline-item-pubkey-color;
     -fx-padding: 3px;
 }
 
@@ -89,4 +90,15 @@
     -fx-font-size: 12pt;
     -fx-padding: 0;
     -fx-background-color: transparent;
+}
+
+.ndesk-publish-box {
+    -fx-font-family: "Roboto";
+    -fx-font-size: 12pt;
+}
+
+.ndesk-publish-button {
+    -fx-background-color: -nd-publish-button-color;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
 }
