@@ -224,6 +224,7 @@
                    :relays relays
                    :refresh-relays-ts refresh-relays-ts}}
    :desc {:fx/type :h-box
+          :style-class ["ndesk-status-relays"]
           :alignment :center
           :children [{:fx/type :text :text "Relays: "}
                      (if (nil? relays)

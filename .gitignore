@@ -11,3 +11,5 @@ classes/
 /TODO-*.txt
 out/
 classes/
+jdeploy/
+jdeploy-bundle/

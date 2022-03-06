@@ -3,6 +3,11 @@
     src: url('/me/untethr/nostr/font/Roboto-Regular.ttf');
 }
 
+@font-face {
+    font-family: 'Roboto Bold';
+    src: url('/me/untethr/nostr/font/Roboto-Bold.ttf');
+}
+
 * {
     -nd-basic-border-color: #aaa;
     -nd-hover-background-color: #eee;
@@ -56,6 +61,10 @@
     -fx-border-color: -nd-basic-border-color transparent transparent transparent;
 }
 
+.ndesk-status-relays {
+    -fx-padding: 3px;
+}
+
 .ndesk-table-view {
     -fx-border-color: -nd-basic-border-color;
 }
@@ -98,7 +107,20 @@
 }
 
 .ndesk-publish-button {
+    -fx-font-family: "Roboto Bold";
     -fx-background-color: -nd-publish-button-color;
     -fx-text-fill: white;
-    -fx-font-weight: bold;
+    -fx-cursor: hand;
+    /*-fx-font-weight: bold; ...negates the boldness somehow*/
+}
+
+.ndesk-reply-button {
+    -fx-font-family: "Roboto Bold";
+    -fx-font-size: 10pt;
+    -fx-pref-width: 5em;
+    -fx-padding: 2px;
+    -fx-background-color: -nd-publish-button-color;
+    -fx-text-fill: white;
+    -fx-cursor: hand;
+    /*-fx-font-weight: bold; ...negates the boldness somehow*/
 }

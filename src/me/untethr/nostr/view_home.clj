@@ -14,15 +14,16 @@
    [me.untethr.nostr.util-fx-more :as util-fx-more]
    [me.untethr.nostr.util-java :as util-java])
   (:import
-   (me.untethr.nostr.domain UITextNote UITextNoteWrapper)
-   (javafx.scene.layout Region HBox Priority)
-   (javafx.geometry Insets Bounds)
-   (javafx.scene.control ListView)
-   (javafx.scene.image Image)
-   (org.fxmisc.richtext GenericStyledArea)
-   (java.util Optional)
-   (javafx.event Event)
-   (javafx.scene.input ScrollEvent)))
+    (me.untethr.nostr.domain UITextNote UITextNoteWrapper)
+    (javafx.scene.layout Region HBox Priority)
+    (javafx.geometry Insets Bounds)
+    (javafx.scene.control ListView)
+    (javafx.scene.image Image)
+    (org.fxmisc.richtext GenericStyledArea)
+    (java.util Optional)
+    (javafx.event Event)
+    (javafx.scene.input ScrollEvent MouseEvent)
+    (javafx.scene Node)))
 
 (def avatar-dim 40)
 
@@ -69,6 +70,12 @@
    :children [{:fx/type fx/ext-instance-factory
                :create #(create-content-node* content)}]})
 
+(defn- show-reply-button!*
+  [show? ^MouseEvent e]
+  (some-> e ^Node .getTarget
+    (.lookup ".ndesk-reply-button")
+    (.setVisible show?)))
+
 (defn timeline-item
   [{:keys [^UITextNote item-data metadata-cache]}]
   (let [pubkey (:pubkey item-data)
@@ -79,6 +86,8 @@
         {:keys [name about picture-url nip05-id created-at]} (some->> pubkey (metadata/get* metadata-cache))
         avatar-color (or (some-> pubkey avatar/color) :lightgray)]
     {:fx/type :border-pane
+     :on-mouse-entered (partial show-reply-button!* true)
+     :on-mouse-exited (partial show-reply-button!* false)
      :left (if picture-url
              {:fx/type avatar
               :picture-url picture-url}
@@ -100,9 +109,21 @@
                                       {:fx/type :label
                                        :style-class "ndesk-timeline-item-pubkey"
                                        :text pubkey}]}
-                    :right {:fx/type :label
-                            :text (or (some-> timestamp util/format-timestamp) "?")}}
-              :bottom {:fx/type timeline-item-content :content content}}}))
+                    :right {:fx/type :v-box
+                            :children [{:fx/type :label
+                                        :text (or (some-> timestamp util/format-timestamp) "?")}]}}
+              :bottom {:fx/type :h-box
+                       :children [{:fx/type timeline-item-content
+                                   :h-box/hgrow :always
+                                   :content content}
+                                  {:fx/type :v-box
+                                   :alignment :bottom-right
+                                   :max-width Integer/MAX_VALUE
+                                   :children [{:fx/type :button
+                                               :visible false
+                                               :style-class ["button" "ndesk-reply-button"] ;; used for .lookup
+                                               :v-box/margin 5
+                                               :text "reply"}]}]}}}))
 
 (defn- tree-rows*
   [indent ^UITextNote item-data metadata-cache expand?]
