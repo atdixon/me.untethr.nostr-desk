@@ -1,22 +1,27 @@
 (ns me.untethr.nostr.view
   (:require
-   [cljfx.api :as fx]
-   [clojure.tools.logging :as log]
-   [me.untethr.nostr.avatar :as avatar]
-   [me.untethr.nostr.cache :as cache]
-   [me.untethr.nostr.domain :as domain]
-   [me.untethr.nostr.event :as ev]
-   [me.untethr.nostr.style :as style :refer [BORDER|]]
-   [me.untethr.nostr.util :as util]
-   [me.untethr.nostr.util-domain :as util-domain]
-   [me.untethr.nostr.view-home :as view-home]
-   [me.untethr.nostr.view-new-identity :as view-new-identity]
-   [me.untethr.nostr.view-relays :as view-relays])
+    [cljfx.api :as fx]
+    [clojure.tools.logging :as log]
+    [me.untethr.nostr.avatar :as avatar]
+    [me.untethr.nostr.cache :as cache]
+    [me.untethr.nostr.domain :as domain]
+    [me.untethr.nostr.event :as ev]
+    [me.untethr.nostr.style :as style :refer [BORDER|]]
+    [me.untethr.nostr.util :as util]
+    [me.untethr.nostr.util-domain :as util-domain]
+    [me.untethr.nostr.view-home :as view-home]
+    [me.untethr.nostr.view-new-identity :as view-new-identity]
+    [me.untethr.nostr.view-relays :as view-relays]
+    [me.untethr.nostr.util-java :as util-java]
+    [me.untethr.nostr.util-fx :as util-fx]
+    [me.untethr.nostr.view-common :as view-common]
+    [me.untethr.nostr.view-reply :as view-reply])
   (:import (javafx.scene.canvas Canvas)
            (javafx.scene.paint Color)
            (javafx.geometry Pos)
            (javafx.scene.layout VBox Priority)
-           (javafx.scene.control TextFormatter$Change)))
+           (javafx.scene.control TextFormatter$Change TextArea)
+           (javafx.beans.property ReadOnlyProperty)))
 
 (defn avatar [{:keys [width picture-url]}]
   {:fx/type :image-view
@@ -118,51 +123,42 @@
             "Profile" {:fx/type profile}
             "Search" {:fx/type search}})})
 
-;; defonce so we don't replace it on ns reload (cljfx fails if we try to)
-(defonce filter*
-  (fn [^TextFormatter$Change change]
-    ;; nil rejects the change
-    (let [new-text (-> change .getControlNewText)
-          valid? (< (count new-text) 280)]
-      (when valid?
-        change))))
-
 (defn publish-box
   [{:keys [can-publish?]}]
   {:fx/type :text-area
    :disable (not can-publish?)
    :style-class ["text-area" "ndesk-publish-box"] ;; used for .lookup
    :prompt-text "What's on your mind?"
-   :pref-height 75
    :wrap-text true
    :text-formatter {:fx/type :text-formatter
                     :value-converter :default
-                    :filter filter*}})
+                    :filter view-common/text-formatter-filter*}})
 
 (defn main-pane
-  [{:keys [home-ux can-publish?]}]
-  {:fx/type :v-box
-   :children
-   [{:fx/type :h-box
-     :children
-     [{:fx/type publish-box
-       :can-publish? can-publish?
-       :h-box/margin 5
-       :h-box/hgrow :always}
-      {:fx/type :label
-       :h-box/margin 5
-       :max-height Integer/MAX_VALUE
-       :graphic {:fx/type :button
-                 :on-action {:event/type :publish!}
-                 :disable (not can-publish?)
-                 :cursor :hand
-                 :style-class ["button" "ndesk-publish-button"]
-                 :style {:-fx-pref-width "8em"
-                         :-fx-pref-height "3em"}
-                 :text "Publish"}}]}
-    {:fx/type fx/ext-instance-factory
-     :create #(doto home-ux
-                (VBox/setVgrow Priority/ALWAYS))}]})
+  [{:keys [home-ux can-publish? active-reply-context]}]
+  {:fx/type fx/ext-let-refs
+   :refs {:dialog {:fx/type view-reply/dialog
+                   :active-reply-context active-reply-context}}
+   :desc
+   {:fx/type :v-box
+    :children
+    [{:fx/type :h-box
+      :alignment :center
+      :children
+      [{:fx/type publish-box
+        :can-publish? can-publish?
+        :h-box/margin 5
+        :h-box/hgrow :always}
+       {:fx/type :label
+        :h-box/margin 5
+        :graphic {:fx/type :button
+                  :on-action {:event/type :publish!}
+                  :disable (not can-publish?)
+                  :style-class ["button" "ndesk-publish-button"]
+                  :text "Publish"}}]}
+     {:fx/type fx/ext-instance-factory
+      :create #(doto home-ux
+                 (VBox/setVgrow Priority/ALWAYS))}]}})
 
 (defn keycards
   [{:keys [active-key identities identity-metadata show-new-identity?
@@ -243,13 +239,9 @@
            :refresh-relays-ts refresh-relays-ts
            :connected-info connected-info}})
 
-(defn can-publish?
-  [active-key identities]
-  (some? (util-domain/->secret-key* active-key identities)))
-
 (defn root [{:keys [show-relays? active-key identities identity-metadata relays
                     refresh-relays-ts connected-info home-ux show-new-identity?
-                    new-identity-error]}]
+                    new-identity-error active-reply-context]}]
   {:fx/type :border-pane
    :left {:fx/type keycards
           :active-key active-key
@@ -257,8 +249,10 @@
           :identity-metadata identity-metadata
           :show-new-identity? show-new-identity?
           :new-identity-error new-identity-error}
-   :center {:fx/type main-pane :home-ux home-ux
-            :can-publish? (can-publish? active-key identities)}
+   :center {:fx/type main-pane
+            :home-ux home-ux
+            :can-publish? (util-domain/can-publish? active-key identities)
+            :active-reply-context active-reply-context}
    :bottom {:fx/type status-bar
             :show-relays? show-relays?
             :relays relays
@@ -267,7 +261,7 @@
 
 (defn stage [{:keys [show-relays? active-key identities identity-metadata relays
                      refresh-relays-ts connected-info home-ux show-new-identity?
-                     new-identity-error]}]
+                     new-identity-error active-reply-context]}]
   {:fx/type :stage
    :showing true
    :title "nostr desk"
@@ -280,6 +274,7 @@
            :show-relays? show-relays?
            :show-new-identity? show-new-identity?
            :new-identity-error new-identity-error
+           :active-reply-context active-reply-context
            :active-key active-key
            :identities identities
            :identity-metadata identity-metadata

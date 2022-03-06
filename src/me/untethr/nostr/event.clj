@@ -126,24 +126,62 @@
       (show-relays-effect false)
       (replace-relays-effect dialog-result false))))
 
+(defn publish-effect
+  [content reply? success-callback]
+  ;; not for now effect is empty/no-op if content is blank
+  (when-not (str/blank? content)
+    [[:bg
+      (fn [*state _db _exec dispatch!]
+        (let [{:keys [active-key identities relays active-reply-context]} @*state
+              ;; safety: if reply?=false we should not have an active-reply-context anyway:
+              use-active-reply-context (when reply? active-reply-context)]
+          (when-let [secret-key (util-domain/->secret-key* active-key identities)]
+            (-> (publish/publish-note! active-key secret-key content relays use-active-reply-context)
+              (d/chain
+                (fn [_]
+                  (success-callback *state)))
+              (d/catch
+                (fn [e]
+                  (log/error e "error sending")))))))]]))
+
 (defn publish!
   [{^ActionEvent event :fx/event}]
   (let [^Button target (.getTarget event)
         ^TextArea found (.lookup (.getScene target) ".ndesk-publish-box")
         content (.getText found)]
-    (when (not-empty (str/trim content))
-      [[:bg
-        (fn [*state _db _exec _dispatch!]
-          (let [{:keys [active-key identities relays]} @*state]
-            (when-let [secret-key (util-domain/->secret-key* active-key identities)]
-              (-> (publish/publish-note! active-key secret-key content relays)
-                (d/chain
-                  (fn [_]
-                    (fx/run-later
-                      (.clear found))))
-                (d/catch
-                  (fn [e]
-                    (log/error e "error sending")))))))]])))
+    ;; the idea here is that we only clear our publish text box if we're
+    ;; successful - otherwise text remains (we still do need better ux feedback
+    ;; in this case tho)
+    (publish-effect content false (fn [& _] (fx/run-later (.clear found))))))
+
+(defn hide-reply-box* [*state]
+  (swap! *state dissoc :active-reply-context))
+
+(defn hide-reply-box-effect []
+  [[:bg
+    (fn [*state _db _exec _dispatch!]
+      (hide-reply-box* *state))]])
+
+(defn reply!
+  [{^DialogEvent dialog-event :fx/event}]
+  (let [dialog-result (.getResult ^Dialog (.getSource dialog-event))]
+    (condp = dialog-result
+      :cancel
+      (hide-reply-box-effect)
+      (let [{:keys [content success-callback]} dialog-result]
+        ;; okay -- we consume dialog event -- this means from this point
+        ;; on we are fully in control of hiding the box -- we want this control
+        ;; b/c we'll close on success but not on publish failure
+        (.consume dialog-event) ;; !
+        (publish-effect content true
+          (fn [*state]
+            ;; only on success we will close the reply box -- otherwise
+            ;; for now assume error and frustrated user will have to cancel
+            ;; see note on publish box handling, too - we need better failure
+            ;; feedback/handling (eg, enqueue in db and have outgoing queue
+            ;; ux -- kinda like scuttleb!!!)
+            (success-callback)
+            (hide-reply-box* *state)))))))
 
 (defn handle
   [{:event/keys [type] :as event}]
@@ -155,4 +193,5 @@
     :show-relays (show-relays-effect true)
     :relays-close-request (relays-close-request event)
     :publish! (publish! event)
+    :reply-close-request (reply! event)
     (log/error "no matching clause" type)))

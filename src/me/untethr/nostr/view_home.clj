@@ -1,18 +1,20 @@
 (ns me.untethr.nostr.view-home
   (:require
-   [cljfx.api :as fx]
-   [clojure.tools.logging :as log]
-   [me.untethr.nostr.domain]
-   [me.untethr.nostr.links :as links]
-   [me.untethr.nostr.metadata :as metadata]
-   [me.untethr.nostr.style :refer [BORDER|]]
-   [me.untethr.nostr.rich-text :as rich-text]
-   [me.untethr.nostr.util :as util]
-   [me.untethr.nostr.cache :as cache]
-   [me.untethr.nostr.avatar :as avatar]
-   [me.untethr.nostr.util-fx :as util-fx]
-   [me.untethr.nostr.util-fx-more :as util-fx-more]
-   [me.untethr.nostr.util-java :as util-java])
+    [cljfx.api :as fx]
+    [clojure.tools.logging :as log]
+    [me.untethr.nostr.domain]
+    [me.untethr.nostr.links :as links]
+    [me.untethr.nostr.metadata :as metadata]
+    [me.untethr.nostr.style :refer [BORDER|]]
+    [me.untethr.nostr.rich-text :as rich-text]
+    [me.untethr.nostr.util :as util]
+    [me.untethr.nostr.cache :as cache]
+    [me.untethr.nostr.avatar :as avatar]
+    [me.untethr.nostr.util-domain :as util-domain]
+    [me.untethr.nostr.util-fx :as util-fx]
+    [me.untethr.nostr.util-fx-more :as util-fx-more]
+    [me.untethr.nostr.util-java :as util-java]
+    [me.untethr.nostr.domain :as domain])
   (:import
     (me.untethr.nostr.domain UITextNote UITextNoteWrapper)
     (javafx.scene.layout Region HBox Priority)
@@ -71,23 +73,26 @@
                :create #(create-content-node* content)}]})
 
 (defn- show-reply-button!*
-  [show? ^MouseEvent e]
-  (some-> e ^Node .getTarget
-    (.lookup ".ndesk-reply-button")
-    (.setVisible show?)))
+  [*state show? ^MouseEvent e]
+  (let [{:keys [active-key identities]} @*state]
+    (when (util-domain/can-publish? active-key identities)
+      (some-> e ^Node .getTarget
+        (.lookup ".ndesk-reply-button")
+        (.setVisible show?)))))
 
 (defn timeline-item
-  [{:keys [^UITextNote item-data metadata-cache]}]
-  (let [pubkey (:pubkey item-data)
+  [{:keys [^UITextNote root-data ^UITextNote item-data metadata-cache *state]}]
+  (let [item-id (:id item-data)
+        pubkey (:pubkey item-data)
         pubkey-for-avatar (or (some-> pubkey (subs 0 3)) "?")
-        pubkey-short (or (some-> pubkey util/format-pubkey-short) "?")
+        ;pubkey-short (or (some-> pubkey util/format-pubkey-short) "?")
         timestamp (:timestamp item-data)
         content (:content item-data)
         {:keys [name about picture-url nip05-id created-at]} (some->> pubkey (metadata/get* metadata-cache))
         avatar-color (or (some-> pubkey avatar/color) :lightgray)]
     {:fx/type :border-pane
-     :on-mouse-entered (partial show-reply-button!* true)
-     :on-mouse-exited (partial show-reply-button!* false)
+     :on-mouse-entered (partial show-reply-button!* *state true)
+     :on-mouse-exited (partial show-reply-button!* *state false)
      :left (if picture-url
              {:fx/type avatar
               :picture-url picture-url}
@@ -123,10 +128,15 @@
                                                :visible false
                                                :style-class ["button" "ndesk-reply-button"] ;; used for .lookup
                                                :v-box/margin 5
-                                               :text "reply"}]}]}}}))
+                                               :text "reply"
+                                               :on-action
+                                               (fn [_]
+                                                 (swap! *state assoc :active-reply-context
+                                                   (domain/->UIReplyContext
+                                                     (:id root-data) item-id)))}]}]}}}))
 
 (defn- tree-rows*
-  [indent ^UITextNote item-data metadata-cache expand?]
+  [indent ^UITextNote root-data ^UITextNote item-data metadata-cache expand? *state]
   (let [spacer-width (* indent 25)]
     (cons
       {:fx/type :h-box
@@ -138,9 +148,11 @@
                    :h-box/hgrow :always
                    :spacer-width spacer-width
                    :item-data item-data
-                   :metadata-cache metadata-cache}]}
+                   :root-data root-data
+                   :metadata-cache metadata-cache
+                   :*state *state}]}
       (when expand?
-        (mapcat #(tree-rows* (inc indent) % metadata-cache expand?) (:children item-data))))))
+        (mapcat #(tree-rows* (inc indent) root-data % metadata-cache expand? *state) (:children item-data))))))
 
 (defn- find-note
   [^UITextNote note pred]
@@ -159,6 +171,7 @@
          (concat
            (tree-rows*
              0
+             root
              (if expanded?
                root
                (or
@@ -167,7 +180,8 @@
                  ;; should never get:
                  root))
              metadata-cache
-             expanded?)
+             expanded?
+             *state)
            ;; this is a bad experience so far so we disable collapse altogether for now
            #_(when (> note-count 1)
              [{:fx/type :hyperlink

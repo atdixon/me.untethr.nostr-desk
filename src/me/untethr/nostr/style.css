@@ -104,6 +104,17 @@
 .ndesk-publish-box {
     -fx-font-family: "Roboto";
     -fx-font-size: 12pt;
+    -fx-pref-height: 1em;
+}
+
+.ndesk-publish-box:focused {
+    -fx-pref-height: 5em;
+}
+
+.ndesk-reply-box {
+    -fx-font-family: "Roboto";
+    -fx-font-size: 12pt;
+    -fx-pref-height: 5em;
 }
 
 .ndesk-publish-button {
@@ -111,6 +122,8 @@
     -fx-background-color: -nd-publish-button-color;
     -fx-text-fill: white;
     -fx-cursor: hand;
+    -fx-pref-width: 6em;
+    -fx-pref-height: 2em;
     /*-fx-font-weight: bold; ...negates the boldness somehow*/
 }
 

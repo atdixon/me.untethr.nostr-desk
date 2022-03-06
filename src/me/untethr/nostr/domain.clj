@@ -5,6 +5,7 @@
   {:show-relays? false
    :show-new-identity? false
    :new-identity-error ""
+   :active-reply-context nil
    :identities [] ;; [domain/Identity]
    :identity-metadata {} ;; pubkey ->
    :contact-lists {} ;; pubkey -> domain/ContactList
@@ -40,6 +41,9 @@
 
 (defrecord UITextNoteWrapper
   [loom-graph expanded? note-count max-timestamp ^UITextNote root])
+
+(defrecord UIReplyContext
+  [root-event-id event-id])
 
 ;; --
 

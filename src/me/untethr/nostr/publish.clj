@@ -35,15 +35,24 @@
      :pubkey pubkey
      :created_at created_at
      :kind 1
-     :tags []
+     :tags tags
      :content content
      :sig sig}))
 
+(defn- reply-context->tags
+  [{:keys [root-event-id event-id] :as reply-context}]
+  (cond
+    (nil? reply-context) []
+    (= root-event-id event-id) [["e" root-event-id]]
+    ;; root event id always *first*
+    :else [["e" root-event-id] ["e" event-id]]))
+
 (defn publish-note!
-  [pubkey secret-key content relays]
+  [pubkey secret-key content relays reply-context]
   (let [deferred-result (d/deferred)
         timestamp (util/now-epoch-second)
-        event-obj (->event pubkey timestamp 1 [] content secret-key)
+        tags (reply-context->tags reply-context)
+        event-obj (->event pubkey timestamp 1 tags content secret-key)
         deferreds (map
                     #(relay-conn/send!* event-obj (:url %))
                     (filter :write? relays))]

@@ -1,7 +1,8 @@
 (ns me.untethr.nostr.util-java
   (:import (javafx.event EventHandler)
            (java.util.function Function BiFunction BiConsumer Predicate)
-           (javafx.beans.value ChangeListener)))
+           (javafx.beans.value ChangeListener)
+           (javafx.util Callback)))
 
 (defn ->BiConsumer
   ^BiConsumer [f]
@@ -27,6 +28,14 @@
     (test [_ t]
       (f t))))
 
+;; javafx
+
+(defn ->Callback
+  ^Callback [f]
+  (reify Callback
+    (call [_ param]
+      (f param))))
+
 (defn ->EventHandler
   ^EventHandler [f]
   (reify EventHandler
@@ -38,3 +47,9 @@
   (reify ChangeListener
     (changed [_ _observable _old-value new-value]
       (f new-value))))
+
+(defn ->ChangeListener*
+  ^ChangeListener [f]
+  (reify ChangeListener
+    (changed [_ observable _old-value new-value]
+      (f observable new-value))))
