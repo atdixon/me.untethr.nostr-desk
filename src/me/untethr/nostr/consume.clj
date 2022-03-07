@@ -77,7 +77,8 @@
   (verify-maybe-persist-event! db cache relay-url event-obj raw-event-tuple
     (partial consume-verified-event db *state executor resubscribe-future-vol relay-url subscription-id)
     (fn [event-obj]
-      (log/info "on-new-relay-seen" relay-url id) ;; todo
+      ;; event from new relay
+      (log/trace "on-new-relay-seen" relay-url id) ;; todo
       )))
 
 (defn- consume-notice

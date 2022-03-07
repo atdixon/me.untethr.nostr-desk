@@ -24,6 +24,8 @@ $ make run
 ```
 
 ### TODO
+* seen-on relays w/ popup
+  * popup queries db (w/ cache) for seen-on?
 * manage followers ux
 * design scheme for efficient load of <missing:xx> messages
   * ie messages from contacts you don't follow
@@ -37,3 +39,7 @@ $ make run
 * more pretty
   * themes?
 * win/mac/linux installables
+* keyboard ux
+  * ctrl-enter publish/reply
+  * esc cancel publish/reply (lose focus)
+  * j/k navigate posts

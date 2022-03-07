@@ -77,7 +77,7 @@
   (let [{:keys [active-key identities]} @*state]
     (when (util-domain/can-publish? active-key identities)
       (some-> e ^Node .getTarget
-        (.lookup ".ndesk-reply-button")
+        (.lookup ".ndesk-content-controls")
         (.setVisible show?)))))
 
 (defn timeline-item
@@ -114,20 +114,21 @@
                                       {:fx/type :label
                                        :style-class "ndesk-timeline-item-pubkey"
                                        :text pubkey}]}
-                    :right {:fx/type :v-box
+                    :right {:fx/type :h-box
                             :children [{:fx/type :label
                                         :text (or (some-> timestamp util/format-timestamp) "?")}]}}
               :bottom {:fx/type :h-box
                        :children [{:fx/type timeline-item-content
                                    :h-box/hgrow :always
                                    :content content}
-                                  {:fx/type :v-box
-                                   :alignment :bottom-right
+                                  {:fx/type :h-box
+                                   :style-class ["ndesk-content-controls"] ;; used for .lookup
+                                   :visible false
+                                   :alignment :center-right
                                    :max-width Integer/MAX_VALUE
                                    :children [{:fx/type :button
-                                               :visible false
                                                :style-class ["button" "ndesk-reply-button"] ;; used for .lookup
-                                               :v-box/margin 5
+                                               :h-box/margin 3
                                                :text "reply"
                                                :on-action
                                                (fn [_]
