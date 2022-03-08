@@ -137,3 +137,10 @@
     -fx-cursor: hand;
     /*-fx-font-weight: bold; ...negates the boldness somehow*/
 }
+
+.ndesk-timeline-item-info-link,
+.ndesk-timeline-item-info-link:hover,
+.ndesk-timeline-item-info-link:hover:visited {
+    -fx-text-fill: #aaa;
+    -fx-padding: 0 5px;
+}

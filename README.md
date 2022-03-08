@@ -43,3 +43,6 @@ $ make run
   * ctrl-enter publish/reply
   * esc cancel publish/reply (lose focus)
   * j/k navigate posts
+* normy features
+  * traditional-like 'signup' ux
+  * what else

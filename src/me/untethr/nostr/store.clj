@@ -231,8 +231,10 @@
   [db public-key secret-key]
   ;; secret-key could be nil
   (jdbc/execute-one! db
-    ["insert or ignore into identities_ (public_key, secret_key) values (?,?)"
-     public-key secret-key]))
+    [(str "insert into identities_ (public_key, secret_key) values (?,?)"
+       " on conflict(public_key) do update set secret_key=?"
+       " where excluded.secret_key is not null")
+     public-key secret-key secret-key]))
 
 (defn delete-identity!
   [db public-key]

@@ -107,7 +107,7 @@
 
 (defn update-active-timeline!
   [*state public-key] ;; note public-key may be nil!
-  (fx/on-fx-thread
+  (fx/run-later
     (swap! *state
       (fn [{:keys [^ListView home-ux identity-timeline] :as curr-state}]
         (.setItems home-ux

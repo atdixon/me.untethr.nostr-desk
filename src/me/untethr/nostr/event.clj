@@ -47,6 +47,21 @@
           (when (some #(= (:public-key identity_) (:public-key %)) curr-identities)
             (hydrate/dehydrate! *state db executor [identity_]))))]]))
 
+(defn maybe-contribute-secret-key*
+  [*state public-key maybe-private-key]
+  ;; this handles a special case where a new identity matches an existing
+  ;; one but we're now getting its private-key.
+  (when (some? maybe-private-key)
+    (swap! *state
+      (fn [{:keys [identities] :as curr-state}]
+        (assoc curr-state :identities
+                          (mapv (fn [identity-]
+                                  (if (and
+                                        (= public-key (:public-key identity-))
+                                        (nil? (:secret-key identity-)))
+                                    (assoc identity- :secret-key maybe-private-key)
+                                    identity-)) identities))))))
+
 (defn add-identity-and-close-dialog-effect
   [public-key maybe-private-key]
   (util/concatv
@@ -54,6 +69,7 @@
     [[:bg
       (fn [*state db executor _dispatch!]
         (store/insert-identity! db public-key maybe-private-key) ;; idempotent
+        (maybe-contribute-secret-key* *state public-key maybe-private-key)
         (let [{curr-identities :identities} @*state]
           ;; don't hydrate identity if it's already hydrated
           (when-not (some #(= public-key (:public-key %)) curr-identities)

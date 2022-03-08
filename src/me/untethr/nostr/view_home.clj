@@ -19,13 +19,14 @@
     (me.untethr.nostr.domain UITextNote UITextNoteWrapper)
     (javafx.scene.layout Region HBox Priority)
     (javafx.geometry Insets Bounds)
-    (javafx.scene.control ListView)
+    (javafx.scene.control ListView Hyperlink Label)
     (javafx.scene.image Image)
     (org.fxmisc.richtext GenericStyledArea)
     (java.util Optional)
-    (javafx.event Event)
+    (javafx.event Event ActionEvent)
     (javafx.scene.input ScrollEvent MouseEvent)
-    (javafx.scene Node)))
+    (javafx.scene Node)
+    (javafx.stage Popup)))
 
 (def avatar-dim 40)
 
@@ -75,10 +76,53 @@
 (defn- show-reply-button!*
   [*state show? ^MouseEvent e]
   (let [{:keys [active-key identities]} @*state]
-    (when (util-domain/can-publish? active-key identities)
-      (some-> e ^Node .getTarget
-        (.lookup ".ndesk-content-controls")
-        (.setVisible show?)))))
+    (when-let [^Node target (.getTarget e)]
+      (some-> target
+        (.lookup ".ndesk-timeline-item-info-link")
+        (.setVisible show?))
+      (when (util-domain/can-publish? active-key identities)
+        (some-> target
+          (.lookup ".ndesk-content-controls")
+          (.setVisible show?))))))
+
+(defonce ^Popup singleton-popup
+  (fx/instance
+    (fx/create-component
+      {:fx/type :popup
+       :anchor-location :window-top-left
+       :auto-hide true
+       :auto-fix false
+       :on-hidden (fn [_])
+       :content [{:fx/type :label
+                  :on-mouse-exited (fn [^MouseEvent x]
+                                     (let [popup (.getWindow
+                                                   (.getScene ^Node
+                                                     (.getSource x)))]
+                                       (.hide popup)))
+                  :padding 20
+                  :style {:-fx-background-color :white}
+                  :effect {:fx/type :drop-shadow}
+                  :text ""}]})))
+
+(defn- ready-popup
+  ^Popup [popup-width item-id]
+  (let [^Label node (first (seq (.getContent singleton-popup)))]
+    (.setText node (str "event-id:" item-id))
+    (.setMinWidth node popup-width)
+    (.setMaxWidth node popup-width)
+    (.setPrefWidth node popup-width)
+    singleton-popup))
+
+(defn- show-info!
+  [item-id ^ActionEvent e]
+  (let [^Hyperlink node (.getSource e)
+        popup-width 300
+        popup (ready-popup popup-width item-id)]
+    (let [bounds (.getBoundsInLocal node)
+          node-pos (.localToScreen node (* 0.5 (.getWidth bounds)) 0.0)]
+      (.show popup node
+        (- (.getX node-pos) (* 0.5 popup-width))
+        (.getY node-pos)))))
 
 (defn timeline-item
   [{:keys [^UITextNote root-data ^UITextNote item-data metadata-cache *state]}]
@@ -115,7 +159,12 @@
                                        :style-class "ndesk-timeline-item-pubkey"
                                        :text pubkey}]}
                     :right {:fx/type :h-box
-                            :children [{:fx/type :label
+                            :children [{:fx/type :hyperlink
+                                        :style-class ["label" "ndesk-timeline-item-info-link"] ;; used for .lookup
+                                        :visible false
+                                        :text "info"
+                                        :on-action (partial show-info! item-id)}
+                                       {:fx/type :label
                                         :text (or (some-> timestamp util/format-timestamp) "?")}]}}
               :bottom {:fx/type :h-box
                        :children [{:fx/type timeline-item-content
@@ -185,10 +234,10 @@
              *state)
            ;; this is a bad experience so far so we disable collapse altogether for now
            #_(when (> note-count 1)
-             [{:fx/type :hyperlink
-               :text (if expanded? "collapse" (format "expand (%d notes)" note-count))
-               :on-action (fn [_]
-                            (timeline/toggle! *state (-> note-wrapper :root :id)))}])))})))
+               [{:fx/type :hyperlink
+                 :text (if expanded? "collapse" (format "expand (%d notes)" note-count))
+                 :on-action (fn [_]
+                              (timeline/toggle! *state (-> note-wrapper :root :id)))}])))})))
 
 (defn home [{:keys [metadata-cache *state]}]
   {:fx/type fx/ext-on-instance-lifecycle
