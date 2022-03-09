@@ -46,3 +46,7 @@ $ make run
 * normy features
   * traditional-like 'signup' ux
   * what else
+
+
+* metadata-cache a bit flawed
+  * design more reactive approach
