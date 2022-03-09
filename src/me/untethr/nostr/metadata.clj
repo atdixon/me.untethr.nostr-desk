@@ -15,9 +15,7 @@
 
 (defn update!
   [cache pubkey ^ParsedMetadata parsed-metadata]
-  ;; todo
-  ;; todo revisit timelines and "refresh" timeline items (w/ timestamp?) whose pubkeys own the message!
-  )
+  (cache/put! cache pubkey parsed-metadata))
 
 (defn get*
   ^ParsedMetadata [cache pubkey]

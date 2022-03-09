@@ -9,7 +9,7 @@
     [me.untethr.nostr.util :as util]
     [me.untethr.nostr.util-java :as util-java])
   (:import (javafx.collections FXCollections ObservableList)
-           (java.util HashMap HashSet)
+           (java.util HashMap HashSet Set)
            (me.untethr.nostr.domain UITextNote UITextNoteWrapper)
            (javafx.scene.control ListView)
            (javafx.collections.transformation FilteredList)))
@@ -18,6 +18,7 @@
   ;; these field values are only ever mutated on fx thread
   [^ObservableList adapted-list
    ^ObservableList observable-list ;; contains UITextNoteWrapper
+   ^HashMap author-pubkey->item-id-set
    ^HashMap item-id->index
    ^HashSet item-ids
    timeline-epoch-vol])
@@ -40,6 +41,7 @@
       adapted-list
       observable-list
       (HashMap.)
+      (HashMap.)
       (HashSet.)
       timeline-epoch-vol)))
 
@@ -61,6 +63,21 @@
         ;; the text-note's ptags references one of identities contacts
         (not-empty (set/intersection contact-keys-set ptag-keys-set))))))
 
+(defn dispatch-metadata-update!
+  [*state {:keys [pubkey] :as _event-obj}]
+  (fx/run-later
+    (let [{:keys [identity-timeline]} @*state]
+      (doseq [[_identity-pubkey timeline] identity-timeline]
+        (let [{:keys [^ObservableList observable-list
+                      ^HashMap author-pubkey->item-id-set
+                      ^HashMap item-id->index]} timeline]
+          (doseq [item-id (seq (.get author-pubkey->item-id-set pubkey))]
+            (when-let [item-idx (.get item-id->index item-id)]
+              (let [curr-wrapper (.get observable-list item-idx)]
+                ;; todo why doesn't this refresh timeline immediately?
+                (.set observable-list item-idx
+                  (assoc curr-wrapper :touch-ts (System/currentTimeMillis)))))))))))
+
 (defn dispatch-text-note!
   [*state {:keys [id pubkey created_at content] :as event-obj}]
   {:pre [(some? pubkey)]}
@@ -69,11 +86,14 @@
     (let [{:keys [identity-timeline] :as _state-snap} @*state]
       (doseq [[identity-pubkey timeline] identity-timeline]
         (let [{:keys [^ObservableList observable-list
+                      ^HashMap author-pubkey->item-id-set
                       ^HashMap item-id->index
                       ^HashSet item-ids]} timeline]
           (when-not (.contains item-ids id)
             (when (accept-text-note? *state identity-pubkey event-obj)
               (.add item-ids id)
+              (.merge author-pubkey->item-id-set pubkey (HashSet. [id])
+                (util-java/->BiFunction (fn [^HashSet acc id] (doto acc (.addAll ^Set id)))))
               (let [etag-ids (parse/parse-etag-ids* event-obj) ;; order matters
                     id-closure (cons id etag-ids)
                     existing-idx (first (keep #(.get item-id->index %) id-closure))]
@@ -92,7 +112,7 @@
 
 (defn toggle!
   [*state id]
-  (let [{:keys [active-key identity-timeline ^ListView home-ux]} @*state
+  (let [{:keys [active-key identity-timeline]} @*state
         ^Timeline active-timeline (get identity-timeline active-key)
         {:keys [^ObservableList observable-list
                 ^HashMap item-id->index]} active-timeline]

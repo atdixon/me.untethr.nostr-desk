@@ -39,7 +39,7 @@
     (domain/initial-state)))
 
 (defonce home-ux
-  (view-home/create-list-view *state metadata-cache daemon-scheduled-executor))
+  (view-home/create-list-view *state db metadata-cache daemon-scheduled-executor))
 
 (swap! *state assoc :home-ux home-ux)
 
@@ -84,7 +84,7 @@
 (defn -main
   [& _]
   (fx/mount-renderer *state renderer)
-  (consume/start! db *state daemon-scheduled-executor)
+  (consume/start! db *state metadata-cache daemon-scheduled-executor)
   (util/schedule! daemon-scheduled-executor load-identities! 1000)
   (util/schedule! daemon-scheduled-executor load-relays! 3000)
   (util/schedule-with-fixed-delay!

@@ -214,6 +214,16 @@
          event-id relay-url]
         {:builder-fn rs/as-unqualified-lower-maps}))))
 
+(defn get-seen-on-relays
+  [db event-id]
+  (vec
+    (sort
+      (map
+        :relay_url
+        (jdbc/execute! db
+          ["select relay_url from relay_event_id where event_id = ?" event-id]
+          {:builder-fn rs/as-unqualified-lower-maps})))))
+
 (defn event-signature-by-id
   [db event-id]
   (:signature_

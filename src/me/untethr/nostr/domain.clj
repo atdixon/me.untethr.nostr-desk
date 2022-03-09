@@ -7,7 +7,7 @@
    :new-identity-error ""
    :active-reply-context nil
    :identities [] ;; [domain/Identity]
-   :identity-metadata {} ;; pubkey ->
+   :identity-metadata {} ;; pubkey -> domain/ParsedMetadata
    :contact-lists {} ;; pubkey -> domain/ContactList
    :relays [] ;; [domain/Relay]
    :connected-info {}

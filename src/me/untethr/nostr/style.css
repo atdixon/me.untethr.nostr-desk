@@ -144,3 +144,15 @@
     -fx-text-fill: #aaa;
     -fx-padding: 0 5px;
 }
+
+.ndesk-info-popup-region {
+    -fx-font-family: "Roboto";
+}
+
+.ndesk-info-popup-region > .hyperlink:focused {
+    -fx-border-width: 0;
+}
+
+.ndesk-info-popup-region > .hyperlink:visited {
+    -fx-text-fill: -fx-accent;
+}
