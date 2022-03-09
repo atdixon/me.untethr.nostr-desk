@@ -76,7 +76,6 @@
   [raw-event-tuple]
   (-> raw-event-tuple json/parse (nth 2)))
 
-;; todo load which relay/s per event, too?
 (defn load-timeline-events
   [db pubkeys]
   (when-not (empty? pubkeys)

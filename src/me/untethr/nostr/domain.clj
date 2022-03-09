@@ -16,7 +16,6 @@
    :active-key nil
    :home-ux nil
    :identity-timeline {} ;; pubkey -> Timeline
-   :timeline-watermarks {} ;; todo ? combine w/ ^^
    })
 
 ;; --

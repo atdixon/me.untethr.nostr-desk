@@ -21,7 +21,6 @@
 
 (defn ->event
   [pubkey created_at kind tags content secret-key]
-  (log/info [pubkey created_at kind tags content secret-key])
   (let [event-id (->event-id pubkey created_at kind tags content)
         aux-bytes (byte-array 32)
         _ (.nextBytes secure-random aux-bytes)

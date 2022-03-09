@@ -78,7 +78,7 @@
 
 (defonce renderer
   (fx/create-renderer
-    :middleware (fx/wrap-map-desc assoc :fx/type view/stage)
+    :middleware (fx/wrap-map-desc assoc :fx/type view/stage :metadata-cache metadata-cache)
     :opts {:fx.opt/map-event-handler map-event-handler}))
 
 (defn -main

@@ -15,7 +15,9 @@
     [me.untethr.nostr.util-java :as util-java]
     [me.untethr.nostr.util-fx :as util-fx]
     [me.untethr.nostr.view-common :as view-common]
-    [me.untethr.nostr.view-reply :as view-reply])
+    [me.untethr.nostr.view-reply :as view-reply]
+    [clojure.string :as str]
+    [me.untethr.nostr.metadata :as metadata])
   (:import (javafx.scene.canvas Canvas)
            (javafx.scene.paint Color)
            (javafx.geometry Pos)
@@ -35,7 +37,6 @@
   (let [avatar-dim 75.0
         avatar-color (avatar/color public-key)]
     {:fx/type :h-box
-     :cursor :hand
      :style (cond-> {}
               active? (assoc :-fx-border-color avatar-color))
      :style-class ["ndesk-keycard"
@@ -60,10 +61,17 @@
        :children
        [{:fx/type :border-pane
          :max-width Integer/MAX_VALUE
-         :left {:fx/type :label
-                :style-class "ndesk-keycard-pubkey"
-                :alignment :top-left
-                :text (util/format-pubkey-short public-key)}
+         :left {:fx/type :h-box
+                :children
+                (cond-> []
+                  name (conj {:fx/type :label
+                              :alignment :top-left
+                              :style-class ["label" "ndesk-keycard-name"]
+                              :text name})
+                  true (conj {:fx/type :label
+                              :alignment :top-left
+                              :style-class ["label" "ndesk-keycard-pubkey"]
+                              :text (util/format-pubkey-short public-key)}))}
          :right {:fx/type :hyperlink :text "X"
                  :on-action {:event/type :delete-keycard :identity_ identity_}}}
         {:fx/type :label
@@ -87,9 +95,60 @@
             :alignment :center
             :text "add new identity"}]}})
 
-(defn notifications [_]
-  {:fx/type :label
-   :text "notifications"})
+(defn contact-card
+  [{:keys [parsed-contact metadata-cache]}]
+  (let [{:keys [public-key main-relay-url petname]} parsed-contact
+        {:keys [name about picture-url nip05-id created-at]} (metadata/get* metadata-cache public-key)
+        pubkey-short (util/format-pubkey-short public-key)
+        avatar-color (avatar/color public-key)
+        avatar-dim 50.0]
+    {:fx/type :v-box
+     :style-class ["ndesk-contact-card"]
+     :children
+     [{:fx/type :h-box
+       :children
+       [(if picture-url
+          {:fx/type avatar
+           :picture-url picture-url
+           :width avatar-dim}
+          {:fx/type :label
+           :min-width avatar-dim
+           :min-height avatar-dim
+           :max-width avatar-dim
+           :max-height avatar-dim
+           :style {:-fx-background-color avatar-color}
+           :style-class "ndesk-contact-photo"
+           :text (subs public-key 0 3)})
+        {:fx/type :v-box
+         :children
+         [{:fx/type :label
+           :style {:-fx-padding [0 5]}
+           :text (or petname name)}
+          {:fx/type :label
+           :style {:-fx-padding [0 5]}
+           :text pubkey-short}]}]}
+      {:fx/type :label
+       :text main-relay-url}]}))
+
+(defn contacts [{:keys [active-contact-list metadata-cache]}]
+  (let [{:keys [parsed-contacts]} active-contact-list]
+    {:fx/type :border-pane
+     :style {:-fx-background-color :white}
+     :left {:fx/type :scroll-pane
+            :style-class ["scroll-pane" "chronos-scroll-pane" "ndesk-contact-list"]
+            :fit-to-width true
+            :hbar-policy :never
+            :vbar-policy :always
+            :content
+            {:fx/type :v-box
+             :children (mapv #(hash-map
+                                :fx/type contact-card
+                                :parsed-contact %
+                                :metadata-cache metadata-cache)
+                         parsed-contacts)}}
+     :center {:fx/type :label
+              :border-pane/alignment :top-left
+              :text "<contact info here>"}}))
 
 (defn messages [_]
   {:fx/type :label
@@ -102,26 +161,6 @@
 (defn search [_]
   {:fx/type :label
    :text "search"})
-
-(defn ^:deprecated tab*
-  [[label content]]
-  {:fx/type :tab
-   :closable false
-   :text label
-   :content content})
-
-(defn ^:deprecated tab-pane
-  [{:keys [home-ux]}]
-  {:fx/type :tab-pane
-   :pref-width 960
-   :pref-height 540
-   :tabs (mapv tab*
-           {"Home" {:fx/type fx/ext-instance-factory
-                    :create (constantly home-ux)}
-            "Notifications" {:fx/type notifications}
-            "Messages" {:fx/type messages}
-            "Profile" {:fx/type profile}
-            "Search" {:fx/type search}})})
 
 (defn publish-box
   [{:keys [can-publish?]}]
@@ -162,6 +201,33 @@
      {:fx/type fx/ext-instance-factory
       :create #(doto home-ux
                  (VBox/setVgrow Priority/ALWAYS))}]}})
+
+(defn tab*
+  [[label content]]
+  {:fx/type :tab
+   :closable false
+   :text label
+   :content content})
+
+(defn tab-pane
+  [{:keys [home-ux can-publish? active-reply-context active-contact-list
+           metadata-cache]}]
+  {:fx/type :tab-pane
+   :side :left
+   :pref-width 960
+   :pref-height 540
+   :tabs (mapv tab*
+           {"Home" {:fx/type main-pane
+                    :home-ux home-ux
+                    :can-publish? can-publish?
+                    :active-reply-context active-reply-context}
+            "Contacts" {:fx/type contacts
+                        :active-contact-list active-contact-list
+                        :metadata-cache metadata-cache}
+            ;"Messages" {:fx/type messages}
+            ;"Profile" {:fx/type profile}
+            ;"Search" {:fx/type search}
+            })})
 
 (defn keycards
   [{:keys [active-key identities identity-metadata show-new-identity?
@@ -244,7 +310,8 @@
 
 (defn root [{:keys [show-relays? active-key identities identity-metadata relays
                     refresh-relays-ts connected-info home-ux show-new-identity?
-                    new-identity-error active-reply-context]}]
+                    new-identity-error active-reply-context contact-lists
+                    metadata-cache]}]
   {:fx/type :border-pane
    :left {:fx/type keycards
           :active-key active-key
@@ -252,10 +319,12 @@
           :identity-metadata identity-metadata
           :show-new-identity? show-new-identity?
           :new-identity-error new-identity-error}
-   :center {:fx/type main-pane
+   :center {:fx/type tab-pane
             :home-ux home-ux
             :can-publish? (util-domain/can-publish? active-key identities)
-            :active-reply-context active-reply-context}
+            :active-reply-context active-reply-context
+            :active-contact-list (get contact-lists active-key)
+            :metadata-cache metadata-cache}
    :bottom {:fx/type status-bar
             :show-relays? show-relays?
             :relays relays
@@ -264,7 +333,8 @@
 
 (defn stage [{:keys [show-relays? active-key identities identity-metadata relays
                      refresh-relays-ts connected-info home-ux show-new-identity?
-                     new-identity-error active-reply-context]}]
+                     new-identity-error active-reply-context contact-lists
+                     metadata-cache]}]
   {:fx/type :stage
    :showing true
    :title "nostr desk"
@@ -281,7 +351,9 @@
            :active-key active-key
            :identities identities
            :identity-metadata identity-metadata
+           :contact-lists contact-lists
            :relays relays
            :refresh-relays-ts refresh-relays-ts
            :connected-info connected-info
-           :home-ux home-ux}}})
+           :home-ux home-ux
+           :metadata-cache metadata-cache}}})
