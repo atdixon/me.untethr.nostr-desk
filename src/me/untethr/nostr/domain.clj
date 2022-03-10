@@ -9,6 +9,7 @@
    :identities [] ;; [domain/Identity]
    :identity-metadata {} ;; pubkey -> domain/ParsedMetadata
    :contact-lists {} ;; pubkey -> domain/ContactList
+   :identity-active-contact {}
    :relays [] ;; [domain/Relay]
    :connected-info {}
    ;; note: changes to active-key and mutations to home-ux, timelines

@@ -96,14 +96,16 @@
             :text "add new identity"}]}})
 
 (defn contact-card
-  [{:keys [parsed-contact metadata-cache]}]
+  [{:keys [active? parsed-contact parsed-metadata]}]
   (let [{:keys [public-key main-relay-url petname]} parsed-contact
-        {:keys [name about picture-url nip05-id created-at]} (metadata/get* metadata-cache public-key)
+        {:keys [name about picture-url nip05-id created-at]} parsed-metadata
         pubkey-short (util/format-pubkey-short public-key)
         avatar-color (avatar/color public-key)
         avatar-dim 50.0]
     {:fx/type :v-box
-     :style-class ["ndesk-contact-card"]
+     :style (if active? {:-fx-border-color avatar-color} {})
+     :style-class (cond-> ["ndesk-contact-card"] active? (conj "ndesk-contact-card-active"))
+     :on-mouse-clicked {:event/type :click-contact-card :contact-pubkey public-key}
      :children
      [{:fx/type :h-box
        :children
@@ -125,30 +127,59 @@
            :style {:-fx-padding [0 5]}
            :text (or petname name)}
           {:fx/type :label
+           :style-class ["label" "ndesk-contact-pubkey"]
            :style {:-fx-padding [0 5]}
-           :text pubkey-short}]}]}
+           :text pubkey-short}
+          {:fx/type :label
+           :text about}]}]}
       {:fx/type :label
        :text main-relay-url}]}))
 
-(defn contacts [{:keys [active-contact-list metadata-cache]}]
+(defn contacts [{:keys [active-contact-list active-contact-pubkey metadata-cache]}]
+  ;; just a note, active-contact-pubkey may refer to a contact that we no longer
+  ;; have - this is fine - we just need to handle this case - user will have to
+  ;; click on another actual contact in this case
   (let [{:keys [parsed-contacts]} active-contact-list]
     {:fx/type :border-pane
      :style {:-fx-background-color :white}
-     :left {:fx/type :scroll-pane
-            :style-class ["scroll-pane" "chronos-scroll-pane" "ndesk-contact-list"]
-            :fit-to-width true
-            :hbar-policy :never
-            :vbar-policy :always
-            :content
-            {:fx/type :v-box
-             :children (mapv #(hash-map
-                                :fx/type contact-card
-                                :parsed-contact %
-                                :metadata-cache metadata-cache)
-                         parsed-contacts)}}
+     :left
+     {:fx/type :v-box
+      :children
+      [{:fx/type :h-box
+        :style {:-fx-padding 5}
+        :cursor :hand
+        :on-mouse-clicked {:event/type :show-new-contact}
+        :children
+        [{:fx/type :label
+          :h-box/hgrow :always
+          :max-width Integer/MAX_VALUE
+          :style-class ["label" "ndesk-add-contact"]
+          :alignment :center
+          :text "add new contact"}]}
+       {:fx/type :scroll-pane
+        :style-class ["scroll-pane" "chronos-scroll-pane" "ndesk-contact-list"]
+        :fit-to-width true
+        :hbar-policy :never
+        :vbar-policy :always
+        :content
+        {:fx/type :v-box
+         :children
+         (vec
+           (sort-by
+             (comp str/trim #(or % "zz") :name :parsed-metadata)
+             (map
+               #(let [contact-pubkey (:public-key %)]
+                  (hash-map
+                    :fx/type contact-card
+                    :fx/key contact-pubkey
+                    :active? (= contact-pubkey active-contact-pubkey)
+                    :parsed-contact %
+                    :parsed-metadata (metadata/get* metadata-cache contact-pubkey)
+                    :metadata-cache metadata-cache))
+               parsed-contacts)))}}]}
      :center {:fx/type :label
               :border-pane/alignment :top-left
-              :text "<contact info here>"}}))
+              :text (format "<contact:%s info here>" active-contact-pubkey)}}))
 
 (defn messages [_]
   {:fx/type :label
@@ -211,7 +242,7 @@
 
 (defn tab-pane
   [{:keys [home-ux can-publish? active-reply-context active-contact-list
-           metadata-cache]}]
+           active-contact-pubkey metadata-cache]}]
   {:fx/type :tab-pane
    :side :left
    :pref-width 960
@@ -223,6 +254,7 @@
                     :active-reply-context active-reply-context}
             "Contacts" {:fx/type contacts
                         :active-contact-list active-contact-list
+                        :active-contact-pubkey active-contact-pubkey
                         :metadata-cache metadata-cache}
             ;"Messages" {:fx/type messages}
             ;"Profile" {:fx/type profile}
@@ -311,7 +343,7 @@
 (defn root [{:keys [show-relays? active-key identities identity-metadata relays
                     refresh-relays-ts connected-info home-ux show-new-identity?
                     new-identity-error active-reply-context contact-lists
-                    metadata-cache]}]
+                    identity-active-contact metadata-cache]}]
   {:fx/type :border-pane
    :left {:fx/type keycards
           :active-key active-key
@@ -324,6 +356,7 @@
             :can-publish? (util-domain/can-publish? active-key identities)
             :active-reply-context active-reply-context
             :active-contact-list (get contact-lists active-key)
+            :active-contact-pubkey (get identity-active-contact active-key)
             :metadata-cache metadata-cache}
    :bottom {:fx/type status-bar
             :show-relays? show-relays?
@@ -334,7 +367,7 @@
 (defn stage [{:keys [show-relays? active-key identities identity-metadata relays
                      refresh-relays-ts connected-info home-ux show-new-identity?
                      new-identity-error active-reply-context contact-lists
-                     metadata-cache]}]
+                     identity-active-contact metadata-cache]}]
   {:fx/type :stage
    :showing true
    :title "nostr desk"
@@ -352,6 +385,7 @@
            :identities identities
            :identity-metadata identity-metadata
            :contact-lists contact-lists
+           :identity-active-contact identity-active-contact
            :relays relays
            :refresh-relays-ts refresh-relays-ts
            :connected-info connected-info

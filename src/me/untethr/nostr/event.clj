@@ -199,6 +199,14 @@
             (success-callback)
             (hide-reply-box* *state)))))))
 
+(defn click-contact-card
+  [{:keys [contact-pubkey]}]
+  [[:bg
+    (fn [*state _db _exec _dispatch!]
+      (swap! *state
+        (fn [{:keys [active-key] :as curr-state}]
+          (assoc-in curr-state [:identity-active-contact active-key] contact-pubkey))))]])
+
 (defn handle
   [{:event/keys [type] :as event}]
   (case type
@@ -210,4 +218,5 @@
     :relays-close-request (relays-close-request event)
     :publish! (publish! event)
     :reply-close-request (reply! event)
+    :click-contact-card (click-contact-card event)
     (log/error "no matching clause" type)))

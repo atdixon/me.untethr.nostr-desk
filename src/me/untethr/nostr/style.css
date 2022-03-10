@@ -166,9 +166,9 @@
 
 .ndesk-contact-list {
     -fx-background: white; /* not -fx-background-color b/c scroll-pane */
-    -fx-pref-width: 250px;
-    -fx-min-width: 250px;
-    -fx-max-width: 250px;
+    -fx-pref-width: 275px;
+    -fx-min-width: 275px;
+    -fx-max-width: 275px;
 }
 
 .ndesk-contact-card {
@@ -177,9 +177,24 @@
     -fx-border-color: #eee;
 }
 
+.ndesk-contact-card-active {
+    -fx-border-width: 5px;
+}
+
 .ndesk-contact-photo {
     -fx-alignment: center;
     -fx-font-size: 18pt;
     -fx-font-weight: bold;
     -fx-text-fill: white;
+}
+.ndesk-contact-pubkey {
+    -fx-font-weight: bold;
+    -fx-text-fill: -nd-timeline-item-pubkey-color;
+}
+
+.ndesk-add-contact {
+    -fx-padding: 5px;
+    -fx-border-color: -nd-basic-border-color;
+    -fx-background-color: white;
+    -fx-cursor: hand;
 }
