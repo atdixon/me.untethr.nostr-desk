@@ -107,7 +107,7 @@
         "NOTICE" (consume-notice relay-url arg0)
         (log/warn "unknown event type" relay-url type-str)))
     (catch Exception e
-      (log/warn "dropping event; bad parse?" relay-url event-str #_e))))
+      (log/warn "dropping event; bad parse?" relay-url event-str e))))
 
 (def ^:private cache-spec
   "initialCapacity=5000,maximumSize=5000,expireAfterWrite=10m")

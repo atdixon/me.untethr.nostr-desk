@@ -39,7 +39,8 @@
         (doseq [[tag-kind arg0] tags]
           (condp = tag-kind
             "e" (store/insert-e-tag! tx id arg0)
-            "p" (store/insert-p-tag! tx id arg0)))
+            "p" (store/insert-p-tag! tx id arg0)
+            :no-op))
         rowid))))
 
 (defn verify-maybe-persist-event! [db ^Cache cache relay-url
