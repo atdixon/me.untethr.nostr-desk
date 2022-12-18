@@ -5,6 +5,8 @@
   - i.e., don't file bugs yet (or do if you like)
   - enjoy the ugly
   - wanna help?
+* can't follow peeps yet so you'll have to create your identity and
+  build your graph on another client
 * db schema is subject to change rapidly
   - so MAY NEED TO do this whenever you pull new commits:
     - `$ rm ~/.nostr-desk` 
