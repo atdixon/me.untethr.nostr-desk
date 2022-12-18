@@ -1,10 +1,10 @@
 # me.untethr.nostr-desk
 
 
-* majorly work-in-progress
-  - i.e., don't file bugs yet
-  - expect performance weirdness etc
+* work-in-progress
+  - i.e., don't file bugs yet (or do if you like)
   - enjoy the ugly
+  - wanna help?
 * db schema is subject to change rapidly
   - so MAY NEED TO do this whenever you pull new commits:
     - `$ rm ~/.nostr-desk` 
