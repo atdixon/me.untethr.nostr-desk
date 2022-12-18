@@ -10,6 +10,7 @@
    [me.untethr.nostr.util :as util]
    [me.untethr.nostr.cache :as cache]
    [me.untethr.nostr.avatar :as avatar]
+   [me.untethr.nostr.load-event :as load-event]
    [me.untethr.nostr.util-domain :as util-domain]
    [me.untethr.nostr.util-fx :as util-fx]
    [me.untethr.nostr.util-fx-more :as util-fx-more]
@@ -148,68 +149,81 @@
         (.getY node-pos)))))
 
 (defn timeline-item
-  [{:keys [^UITextNote root-data ^UITextNote item-data *state db metadata-cache]}]
-  (let [item-id (:id item-data)
-        pubkey (:pubkey item-data)
-        pubkey-for-avatar (or (some-> pubkey (subs 0 3)) "?")
-        ;pubkey-short (or (some-> pubkey util/format-pubkey-short) "?")
-        timestamp (:timestamp item-data)
-        content (:content item-data)
-        {:keys [name about picture-url nip05-id created-at]} (some->> pubkey (metadata/get* metadata-cache))
-        avatar-color (or (some-> pubkey avatar/color) :lightgray)]
-    {:fx/type :border-pane
-     :on-mouse-entered (partial show-reply-button!* *state true)
-     :on-mouse-exited (partial show-reply-button!* *state false)
-     :left (if picture-url
-             {:fx/type avatar
-              :picture-url picture-url}
-             {:fx/type :label
-              :min-width avatar-dim
-              :min-height avatar-dim
-              :max-width avatar-dim
-              :max-height avatar-dim
-              :style {:-fx-background-color avatar-color}
-              :style-class "ndesk-timeline-item-photo"
-              :text pubkey-for-avatar})
-     :center {:fx/type :border-pane
-              :top {:fx/type :border-pane
-                    :border-pane/margin (Insets. 0.0 5.0 0.0 5.0)
-                    :left {:fx/type :h-box
-                           :children [{:fx/type :label
-                                       :style-class "ndesk-timeline-item-name"
-                                       :text name}
-                                      {:fx/type :label
-                                       :style-class "ndesk-timeline-item-pubkey"
-                                       :text pubkey}]}
-                    :right {:fx/type :h-box
-                            :children [{:fx/type :hyperlink
-                                        :style-class ["label" "ndesk-timeline-item-info-link"] ;; used for .lookup
-                                        :visible false
-                                        :text "info"
-                                        :on-action (partial show-info! db item-id)}
-                                       {:fx/type :label
-                                        :text (or (some-> timestamp util/format-timestamp) "?")}]}}
-              :bottom {:fx/type :h-box
-                       :children [{:fx/type timeline-item-content
-                                   :h-box/hgrow :always
-                                   :content content}
-                                  {:fx/type :h-box
-                                   :style-class ["ndesk-content-controls"] ;; used for .lookup
-                                   :visible false
-                                   :alignment :center-right
-                                   :max-width Integer/MAX_VALUE
-                                   :children [{:fx/type :button
-                                               :style-class ["button" "ndesk-reply-button"] ;; used for .lookup
-                                               :h-box/margin 3
-                                               :text "reply"
-                                               :on-action
-                                               (fn [_]
-                                                 (swap! *state assoc :active-reply-context
-                                                   (domain/->UIReplyContext
-                                                     (:id root-data) item-id)))}]}]}}}))
+  [{:keys [^UITextNote root-data ^UITextNote item-data *state db metadata-cache executor]}]
+  (if (:missing? item-data)
+    {:fx/type :h-box
+     :style-class ["ndesk-timeline-item-missing"]
+     :children [{:fx/type :hyperlink
+                 :h-box/hgrow :always
+                 :style-class ["ndesk-timeline-item-missing-hyperlink"]
+                 :text "load parent message..."
+                 :on-action (fn [^ActionEvent _e]
+                              ;; get off of fx thread
+                              (util/submit! executor
+                                (fn []
+                                  (load-event/async-load-event! *state db executor (:id item-data)))))}]}
+    ;; else -- not missing
+    (let [item-id (:id item-data)
+          pubkey (:pubkey item-data)
+          pubkey-for-avatar (or (some-> pubkey (subs 0 3)) "?")
+          ;pubkey-short (or (some-> pubkey util/format-pubkey-short) "?")
+          timestamp (:timestamp item-data)
+          content (:content item-data)
+          {:keys [name about picture-url nip05-id created-at]} (some->> pubkey (metadata/get* metadata-cache))
+          avatar-color (or (some-> pubkey avatar/color) :lightgray)]
+      {:fx/type :border-pane
+       :on-mouse-entered (partial show-reply-button!* *state true)
+       :on-mouse-exited (partial show-reply-button!* *state false)
+       :left (if picture-url
+               {:fx/type avatar
+                :picture-url picture-url}
+               {:fx/type :label
+                :min-width avatar-dim
+                :min-height avatar-dim
+                :max-width avatar-dim
+                :max-height avatar-dim
+                :style {:-fx-background-color avatar-color}
+                :style-class "ndesk-timeline-item-photo"
+                :text pubkey-for-avatar})
+       :center {:fx/type :border-pane
+                :top {:fx/type :border-pane
+                      :border-pane/margin (Insets. 0.0 5.0 0.0 5.0)
+                      :left {:fx/type :h-box
+                             :children [{:fx/type :label
+                                         :style-class "ndesk-timeline-item-name"
+                                         :text name}
+                                        {:fx/type :label
+                                         :style-class "ndesk-timeline-item-pubkey"
+                                         :text pubkey}]}
+                      :right {:fx/type :h-box
+                              :children [{:fx/type :hyperlink
+                                          :style-class ["label" "ndesk-timeline-item-info-link"] ;; used for .lookup
+                                          :visible false
+                                          :text "info"
+                                          :on-action (partial show-info! db item-id)}
+                                         {:fx/type :label
+                                          :text (or (some-> timestamp util/format-timestamp) "?")}]}}
+                :bottom {:fx/type :h-box
+                         :children [{:fx/type timeline-item-content
+                                     :h-box/hgrow :always
+                                     :content content}
+                                    {:fx/type :h-box
+                                     :style-class ["ndesk-content-controls"] ;; used for .lookup
+                                     :visible false
+                                     :alignment :center-right
+                                     :max-width Integer/MAX_VALUE
+                                     :children [{:fx/type :button
+                                                 :style-class ["button" "ndesk-reply-button"] ;; used for .lookup
+                                                 :h-box/margin 3
+                                                 :text "reply"
+                                                 :on-action
+                                                 (fn [_]
+                                                   (swap! *state assoc :active-reply-context
+                                                     (domain/->UIReplyContext
+                                                       (:id root-data) item-id)))}]}]}}})))
 
 (defn- tree-rows*
-  [indent ^UITextNote root-data ^UITextNote item-data expand? *state db metadata-cache]
+  [indent ^UITextNote root-data ^UITextNote item-data expand? *state db metadata-cache executor]
   (let [spacer-width (* indent 25)]
     (cons
       {:fx/type :h-box
@@ -224,15 +238,16 @@
                    :root-data root-data
                    :*state *state
                    :db db
-                   :metadata-cache metadata-cache}]}
+                   :metadata-cache metadata-cache
+                   :executor executor}]}
       (when expand?
-        (mapcat #(tree-rows* (inc indent) root-data % expand? *state db metadata-cache) (:children item-data))))))
+        (mapcat #(tree-rows* (inc indent) root-data % expand? *state db metadata-cache executor) (:children item-data))))))
 
 (defn- find-note
   [^UITextNote note pred]
   (if (pred note) note (first (map #(find-note % pred) (:children note)))))
 
-(defn- tree* [{:keys [^UITextNoteWrapper note-wrapper *state db metadata-cache]}]
+(defn- tree* [{:keys [^UITextNoteWrapper note-wrapper *state db metadata-cache executor]}]
   ;; note: we get nil note-wrapper sometimes when the list-cell is advancing
   ;; in some ways -- for now just render label w/ err which we'll see if
   ;; this matters --
@@ -256,7 +271,8 @@
              expanded?
              *state
              db
-             metadata-cache)
+             metadata-cache
+             executor)
            ;; this is a bad experience so far so we disable collapse altogether for now
            #_(when (> note-count 1)
                [{:fx/type :hyperlink
@@ -264,7 +280,7 @@
                  :on-action (fn [_]
                               (timeline/toggle! *state (-> note-wrapper :root :id)))}])))})))
 
-(defn home [{:keys [*state db metadata-cache]}]
+(defn home [{:keys [*state db metadata-cache executor]}]
   {:fx/type fx/ext-on-instance-lifecycle
    :on-created #(.setSelectionModel % util-fx-more/no-selection-model)
    :desc {:fx/type :list-view
@@ -276,12 +292,14 @@
                                        :note-wrapper note-wrapper
                                        :*state *state
                                        :db db
-                                       :metadata-cache metadata-cache}})}}})
+                                       :metadata-cache metadata-cache
+                                       :executor executor}})}}})
 
 (defn create-list-view
-  ^ListView [*state db metadata-cache _executor]
+  ^ListView [*state db metadata-cache executor]
   (fx/instance
     (fx/create-component {:fx/type home
                           :*state *state
                           :db db
-                          :metadata-cache metadata-cache})))
+                          :metadata-cache metadata-cache
+                          :executor executor})))

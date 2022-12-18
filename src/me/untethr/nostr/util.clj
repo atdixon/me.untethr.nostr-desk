@@ -59,8 +59,10 @@
   (vec (apply concat colls)))
 
 (defn schedule!
-  [^ScheduledExecutorService executor ^Runnable f ^long delay]
-  (.schedule executor (wrap-exc-fn f) delay TimeUnit/MILLISECONDS))
+  ([^ScheduledExecutorService executor ^Runnable f ^long delay]
+   (schedule! executor f delay nil))
+  ([^ScheduledExecutorService executor ^Runnable f ^long delay context]
+   (.schedule executor (wrap-exc-fn context f) delay TimeUnit/MILLISECONDS)))
 
 (defn schedule-with-fixed-delay!
   [^ScheduledExecutorService executor ^Runnable f ^long initial-delay ^long delay]

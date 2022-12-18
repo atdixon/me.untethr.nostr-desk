@@ -37,7 +37,7 @@
   [name about picture-url nip05-id created-at])
 
 (defrecord UITextNote
-  [id pubkey #_... content timestamp e-tags children])
+  [id pubkey #_... content timestamp e-tags children missing?])
 
 (defrecord UITextNoteWrapper
   [loom-graph expanded? note-count max-timestamp ^UITextNote root])

@@ -52,16 +52,15 @@
         ;; consider: optimization--not having to create contact set each note
         contact-keys-set (into #{} (map :public-key) parsed-contacts)
         ptag-keys-set (set (parse/parse-ptag-keys* event-obj))]
-    (doto
-      (or
-        ;; identity's own note
-        (= pubkey identity-pubkey)
-        ;; the text-note's pubkey matches an identity's contact
-        (contact-keys-set pubkey)
-        ;; the text-note's ptags reference identity itself
-        (ptag-keys-set identity-pubkey)
-        ;; the text-note's ptags references one of identities contacts
-        (not-empty (set/intersection contact-keys-set ptag-keys-set))))))
+    (or
+      ;; identity's own note
+      (= pubkey identity-pubkey)
+      ;; the text-note's pubkey matches an identity's contact
+      (contact-keys-set pubkey)
+      ;; the text-note's ptags reference identity itself
+      (ptag-keys-set identity-pubkey)
+      ;; the text-note's ptags references one of identities contacts
+      (not-empty (set/intersection contact-keys-set ptag-keys-set)))))
 
 (defn dispatch-metadata-update!
   [*state {:keys [pubkey] :as _event-obj}]
@@ -90,7 +89,12 @@
                       ^HashMap item-id->index
                       ^HashSet item-ids]} timeline]
           (when-not (.contains item-ids id)
-            (when (accept-text-note? *state identity-pubkey event-obj)
+            (when (or
+                    ;; our item-id->index map will have a key for any id that
+                    ;; has been referenced by any other accepted text note.
+                    ;; so we also want to accept those "missing" notes:
+                    (.containsKey item-id->index id)
+                    (accept-text-note? *state identity-pubkey event-obj))
               (.add item-ids id)
               (.merge author-pubkey->item-id-set pubkey (HashSet. [id])
                 (util-java/->BiFunction (fn [^HashSet acc id] (doto acc (.addAll ^Set id)))))

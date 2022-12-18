@@ -47,7 +47,8 @@
                                    {:keys [pubkey id sig] :as event-obj}
                                    raw-event-tuple
                                    on-new-event
-                                   on-new-relay-seen]
+                                   on-new-relay-seen
+                                   on-event-stored-but-not-cached]
   (let [relay-id-key [relay-url id]
         id-key [:id id]]
     (when-not (cache/cache-contains? cache relay-id-key)
@@ -58,18 +59,21 @@
           (cache/put! cache relay-id-key)
           (when-not (cache/cache-contains? cache id-key)
             (when-let [sig-from-db (store/event-signature-by-id db id)]
-              (cache/put! cache [:id id] sig-from-db))))
+              (cache/put! cache [:id id] sig-from-db)))
+          (on-event-stored-but-not-cached event-obj))
         ;; -- else (event not yet seen from relay - cache nor db)
         (let [calculated-event-id (calc-event-id event-obj)]
           (if (not= id calculated-event-id)
             ;; -- then
-            (log/debug "bad id" id relay-url) ;; consider: something else?
+            (do
+              (log/debug "bad id" id relay-url)) ;; consider: something else?
             ;; -- else (we have a good id)
             (if-let [sig-from-cache (cache/get-if-present cache id-key)]
               ;; -- then sig in cache
               (if (not= sig sig-from-cache)
                 ;; -- then
-                (log/debug "bad sig" id relay-url) ;; consider: something else?
+                (do
+                  (log/debug "bad sig" id relay-url)) ;; consider: something else?
                 ;; -- else (we have good sig for a message we've seen, just not yet from this relay)
                 (do
                   (store/contains-event-from-relay! db relay-url id) ;; consider: accumulating batching db writes -- these can be best-effort
@@ -81,7 +85,8 @@
                 ;; -- then sig in db
                 (if (not= sig sig-from-db)
                   ;; -- then
-                  (log/debug "bad sig" id relay-url) ;; consider: something else?
+                  (do
+                    (log/debug "bad sig" id relay-url)) ;; consider: something else?
                   ;; -- good sig (per db)
                   (do
                     (store/contains-event-from-relay! db relay-url id) ;; consider: accumulating batching db writes -- these can be best-effort
@@ -99,5 +104,6 @@
                     (cache/put! cache [:id id] sig)
                     (on-new-event event-obj))
                   ;; else -- failed to verify
-                  (log/debug "bad sig" id relay-url) ;; consider: something else? consider: cache bad ids from relays too?
+                  (do
+                    (log/debug "bad sig" id relay-url)) ;; consider: something else? consider: cache bad ids from relays too?
                   )))))))))

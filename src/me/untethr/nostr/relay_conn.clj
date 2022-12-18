@@ -8,6 +8,15 @@
     [manifold.stream :as s]
     [manifold.time :as t]))
 
+(defn- websocket-client*
+  [relay-url]
+  (http/websocket-client relay-url
+    {:max-frame-payload 196608
+     :max-frame-size 3145728
+     :heartbeats {:send-after-idle 5000}}))
+
+;; --
+
 (def ^:private connect-timeout-secs 20)
 (def ^:private send-timeout-secs 10)
 
@@ -63,7 +72,7 @@
         (log/debugf "connect attempt %s" relay-url)
         ;; we contrive here for our deferred-conn to for-sure get an error or success
         (->
-          (http/websocket-client relay-url {:heartbeats {:send-after-idle 5000}})
+          (websocket-client* relay-url)
           ;; timeout without a timeout-val produces an d/error! that is handled
           ;; by the d/catch below
           (d/timeout! (* connect-timeout-secs 1000))
@@ -221,7 +230,7 @@
           {:keys [write-connections-vol]} conn-registry
           _ (vswap! write-connections-vol assoc relay-url deferred-conn)]
       (->
-        (http/websocket-client relay-url {:heartbeats {:send-after-idle 5000}})
+        (websocket-client* relay-url)
         ;; timeout without a timeout-val produces an d/error! that is handled
         ;; by the d/catch below
         (d/timeout! (* connect-timeout-secs 1000))

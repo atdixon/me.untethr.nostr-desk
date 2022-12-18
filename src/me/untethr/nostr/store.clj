@@ -76,6 +76,14 @@
   [raw-event-tuple]
   (-> raw-event-tuple json/parse (nth 2)))
 
+(defn load-event
+  [db event-id]
+  (some->
+    (jdbc/execute-one! db ["select e.raw_event_tuple from n_events e where e.id = ?" event-id]
+      {:builder-fn rs/as-unqualified-lower-maps})
+    :raw_event_tuple
+    raw-event-tuple->event-obj))
+
 (defn load-timeline-events
   [db pubkeys]
   (when-not (empty? pubkeys)

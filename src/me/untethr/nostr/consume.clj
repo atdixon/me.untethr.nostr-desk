@@ -1,16 +1,17 @@
 (ns me.untethr.nostr.consume
   (:require
-   [clojure.tools.logging :as log]
-   [manifold.stream :as s]
-   [me.untethr.nostr.cache :as cache]
-   [me.untethr.nostr.consume-verify :refer [verify-maybe-persist-event!]]
-   [me.untethr.nostr.json :as json]
-   [me.untethr.nostr.relay-conn :as relay-conn]
-   [me.untethr.nostr.metadata :as metadata]
-   [me.untethr.nostr.timeline :as timeline]
-   [me.untethr.nostr.domain :as domain]
-   [me.untethr.nostr.parse :as parse]
-   [me.untethr.nostr.subscribe :as subscribe])
+    [clojure.string :as str]
+    [clojure.tools.logging :as log]
+    [manifold.stream :as s]
+    [me.untethr.nostr.cache :as cache]
+    [me.untethr.nostr.consume-verify :refer [verify-maybe-persist-event!]]
+    [me.untethr.nostr.json :as json]
+    [me.untethr.nostr.relay-conn :as relay-conn]
+    [me.untethr.nostr.metadata :as metadata]
+    [me.untethr.nostr.timeline :as timeline]
+    [me.untethr.nostr.domain :as domain]
+    [me.untethr.nostr.parse :as parse]
+    [me.untethr.nostr.subscribe :as subscribe])
   (:import (me.untethr.nostr.timeline Timeline)
            (java.util.concurrent ScheduledExecutorService ScheduledFuture TimeUnit)))
 
@@ -87,15 +88,24 @@
     (log/warn "skipping kind" kind relay-url)))
 
 (defn- consume-event
-  [db *state metadata-cache executor resubscribe-future-vol cache relay-url subscription-id {:keys [id] :as event-obj} raw-event-tuple]
+  [db *state metadata-cache executor resubscribe-future-vol cache relay-url subscription-id {:keys [id kind] :as event-obj} raw-event-tuple]
   (verify-maybe-persist-event! db cache relay-url event-obj raw-event-tuple
     (partial consume-verified-event db *state metadata-cache executor resubscribe-future-vol relay-url subscription-id)
     (fn [_event-obj] ;; event we already have - but from new relay
-      (log/trace "on-new-relay-seen" relay-url id))))
+      (log/trace "on-new-relay-seen" relay-url id))
+    (fn [event-obj] ;; an event we've stored but don't have cached
+      ;; for now, we consume all of these assuming that anything not in the cache
+      ;; might not have been yet incorporated into ux data
+      (consume-verified-event db *state metadata-cache executor resubscribe-future-vol relay-url subscription-id event-obj))))
 
 (defn- consume-notice
   [relay-url message]
   (log/info "NOTICE (TODO): " relay-url message) ;; todo
+  )
+
+(defn- consume-eose
+  [relay-url subscription-id]
+  (log/info "EOSE (TODO): " relay-url subscription-id) ;; todo
   )
 
 (defn- consume*
@@ -105,6 +115,7 @@
       (condp = type-str
         "EVENT" (consume-event db *state metadata-cache executor resubscribe-future-vol cache relay-url arg0 arg1 event-str)
         "NOTICE" (consume-notice relay-url arg0)
+        "EOSE" (consume-eose relay-url arg0)
         (log/warn "unknown event type" relay-url type-str)))
     (catch Exception e
       (log/warn "dropping event; bad parse?" relay-url event-str e))))

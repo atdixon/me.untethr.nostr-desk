@@ -76,6 +76,16 @@
     -fx-border-color: -nd-basic-border-color;
 }
 
+.ndesk-timeline-item-missing {
+    /* -fx-background-color: darkblue; */
+    /*-fx-alignment: center;*/
+}
+
+.ndesk-timeline-item-missing-hyperlink {
+    -fx-font-weight: bold;
+    -fx-text-fill: black;
+}
+
 .ndesk-timeline-item-photo {
     -fx-alignment: center;
     -fx-font-size: 12pt;

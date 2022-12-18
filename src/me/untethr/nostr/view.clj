@@ -244,7 +244,7 @@
   [{:keys [home-ux can-publish? active-reply-context active-contact-list
            active-contact-pubkey metadata-cache]}]
   {:fx/type :tab-pane
-   :side :left
+   :side :top
    :pref-width 960
    :pref-height 540
    :tabs (mapv tab*
