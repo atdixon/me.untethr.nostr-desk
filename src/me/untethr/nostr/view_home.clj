@@ -166,22 +166,31 @@
                    {:fx/type :label
                     :style-class ["label" "ndesk-info-popup-seen-on"]}
                    {:fx/type :hyperlink
-                    :style-class ["hyperlink" "ndesk-info-popup-copy-event-link"]
+                    :style-class ["hyperlink" "ndesk-info-popup-copy-event-link"] ;; used in .lookup
                     :text "Copy event id"
                     :on-action (fn [^ActionEvent e]
                                  (when-let [content
                                             (some-> e ^Hyperlink .getSource .getUserData :event-id)]
+                                   (util/put-clipboard! content)))}
+                   {:fx/type :hyperlink
+                    :style-class ["hyperlink" "ndesk-info-popup-copy-author-pubkey-link"] ;; used in .lookup
+                    :text "Copy author pubkey"
+                    :on-action (fn [^ActionEvent e]
+                                 (when-let [content
+                                            (some-> e ^Hyperlink .getSource .getUserData :author-pubkey)]
                                    (util/put-clipboard! content)))}]}]})))
 
 (defn- ready-popup!
-  ^Popup [db popup-width item-id]
+  ^Popup [db popup-width item-id author-pubkey]
   (let [event-id-short (util/format-event-id-short item-id)
         seen-on-relays (store/get-seen-on-relays db item-id)
         ^VBox v-box (first (seq (.getContent singleton-popup)))
         ^Label event-id-label (.lookup v-box ".ndesk-info-popup-event-id")
         ^Label seen-on-label (.lookup v-box ".ndesk-info-popup-seen-on")
-        ^Hyperlink copy-event-id-hyperlink (.lookup v-box ".ndesk-info-popup-copy-event-link")]
+        ^Hyperlink copy-event-id-hyperlink (.lookup v-box ".ndesk-info-popup-copy-event-link")
+        ^Hyperlink copy-author-pubkey-hyperlink (.lookup v-box ".ndesk-info-popup-copy-author-pubkey-link")]
     (.setUserData copy-event-id-hyperlink {:event-id item-id})
+    (.setUserData copy-author-pubkey-hyperlink {:author-pubkey author-pubkey})
     (.setText event-id-label (str "Event: " event-id-short))
     (.setText seen-on-label (str/join "\n" (cons "Seen on:" seen-on-relays)))
     (.setMinWidth v-box popup-width)
@@ -190,10 +199,10 @@
     singleton-popup))
 
 (defn- show-info!
-  [db item-id ^ActionEvent e]
+  [db item-id author-pubkey ^ActionEvent e]
   (let [^Hyperlink node (.getSource e)
         popup-width 250
-        popup (ready-popup! db popup-width item-id)]
+        popup (ready-popup! db popup-width item-id author-pubkey)]
     (let [bounds (.getBoundsInLocal node)
           node-pos (.localToScreen node (* 0.5 (.getWidth bounds)) 0.0)]
       (.show popup node
@@ -253,7 +262,7 @@
                                           :style-class ["label" "ndesk-timeline-item-info-link"] ;; used for .lookup
                                           :visible false
                                           :text "info"
-                                          :on-action (partial show-info! db item-id)}
+                                        :on-action (partial show-info! db item-id pubkey)}
                                          {:fx/type :label
                                           :text (or (some-> timestamp util/format-timestamp) "?")}]}}
                 :bottom {:fx/type :h-box
