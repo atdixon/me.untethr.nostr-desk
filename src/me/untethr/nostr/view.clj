@@ -129,7 +129,7 @@
           {:fx/type :label
            :style-class ["label" "ndesk-contact-pubkey"]
            :style {:-fx-padding [0 5]}
-           :text pubkey-short}
+           :text public-key}
           {:fx/type :label
            :text about}]}]}
       {:fx/type :label
@@ -243,13 +243,13 @@
    :pref-height 540
    :tabs (mapv tab*
            {"Home" {:fx/type main-pane
-                    :home-ux home-ux
-                    :can-publish? can-publish?
-                    :active-reply-context active-reply-context}
-            "Home (new)" {:fx/type main-pane
                           :home-ux home-ux-new
                           :can-publish? can-publish?
                           :active-reply-context active-reply-context}
+            "Home (old)" {:fx/type main-pane
+                    :home-ux home-ux
+                    :can-publish? can-publish?
+                    :active-reply-context active-reply-context}
             "Contacts" {:fx/type contacts
                         :active-contact-list active-contact-list
                         :active-contact-pubkey active-contact-pubkey
