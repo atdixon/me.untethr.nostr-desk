@@ -140,46 +140,40 @@
   ;; have - this is fine - we just need to handle this case - user will have to
   ;; click on another actual contact in this case
   (let [{:keys [parsed-contacts]} active-contact-list]
-    {:fx/type :border-pane
-     :style {:-fx-background-color :white}
-     :left
-     {:fx/type :v-box
-      :children
-      [{:fx/type :h-box
-        :style {:-fx-padding 5}
-        :cursor :hand
-        :on-mouse-clicked {:event/type :show-new-contact}
+    {:fx/type :v-box
+     :children
+     [{:fx/type :h-box
+       :style {:-fx-padding 5}
+       :cursor :hand
+       :on-mouse-clicked {:event/type :show-new-contact}
+       :children
+       [{:fx/type :label
+         :h-box/hgrow :always
+         :max-width Integer/MAX_VALUE
+         :style-class ["label" "ndesk-add-contact"]
+         :alignment :center
+         :text "add new contact"}]}
+      {:fx/type :scroll-pane
+       :style-class ["scroll-pane" "chronos-scroll-pane" "ndesk-contact-list"]
+       :fit-to-width true
+       :hbar-policy :never
+       :vbar-policy :always
+       :content
+       {:fx/type :v-box
         :children
-        [{:fx/type :label
-          :h-box/hgrow :always
-          :max-width Integer/MAX_VALUE
-          :style-class ["label" "ndesk-add-contact"]
-          :alignment :center
-          :text "add new contact"}]}
-       {:fx/type :scroll-pane
-        :style-class ["scroll-pane" "chronos-scroll-pane" "ndesk-contact-list"]
-        :fit-to-width true
-        :hbar-policy :never
-        :vbar-policy :always
-        :content
-        {:fx/type :v-box
-         :children
-         (vec
-           (sort-by
-             (comp str/trim #(or % "zz") :name :parsed-metadata)
-             (map
-               #(let [contact-pubkey (:public-key %)]
-                  (hash-map
-                    :fx/type contact-card
-                    :fx/key contact-pubkey
-                    :active? (= contact-pubkey active-contact-pubkey)
-                    :parsed-contact %
-                    :parsed-metadata (metadata/get* metadata-cache contact-pubkey)
-                    :metadata-cache metadata-cache))
-               parsed-contacts)))}}]}
-     :center {:fx/type :label
-              :border-pane/alignment :top-left
-              :text (format "<contact:%s info here>" active-contact-pubkey)}}))
+        (vec
+          (sort-by
+            (comp str/trim #(or % "zz") :name :parsed-metadata)
+            (map
+              #(let [contact-pubkey (:public-key %)]
+                 (hash-map
+                   :fx/type contact-card
+                   :fx/key contact-pubkey
+                   :active? (= contact-pubkey active-contact-pubkey)
+                   :parsed-contact %
+                   :parsed-metadata (metadata/get* metadata-cache contact-pubkey)
+                   :metadata-cache metadata-cache))
+              parsed-contacts)))}}]}))
 
 (defn messages [_]
   {:fx/type :label
@@ -241,7 +235,7 @@
    :content content})
 
 (defn tab-pane
-  [{:keys [home-ux can-publish? active-reply-context active-contact-list
+  [{:keys [home-ux home-ux-new can-publish? active-reply-context active-contact-list
            active-contact-pubkey metadata-cache]}]
   {:fx/type :tab-pane
    :side :top
@@ -252,6 +246,10 @@
                     :home-ux home-ux
                     :can-publish? can-publish?
                     :active-reply-context active-reply-context}
+            "Home (new)" {:fx/type main-pane
+                          :home-ux home-ux-new
+                          :can-publish? can-publish?
+                          :active-reply-context active-reply-context}
             "Contacts" {:fx/type contacts
                         :active-contact-list active-contact-list
                         :active-contact-pubkey active-contact-pubkey
@@ -341,7 +339,7 @@
            :connected-info connected-info}})
 
 (defn root [{:keys [show-relays? active-key identities identity-metadata relays
-                    refresh-relays-ts connected-info home-ux show-new-identity?
+                    refresh-relays-ts connected-info home-ux home-ux-new show-new-identity?
                     new-identity-error active-reply-context contact-lists
                     identity-active-contact metadata-cache]}]
   {:fx/type :border-pane
@@ -353,6 +351,7 @@
           :new-identity-error new-identity-error}
    :center {:fx/type tab-pane
             :home-ux home-ux
+            :home-ux-new home-ux-new
             :can-publish? (util-domain/can-publish? active-key identities)
             :active-reply-context active-reply-context
             :active-contact-list (get contact-lists active-key)
@@ -365,7 +364,7 @@
             :connected-info connected-info}})
 
 (defn stage [{:keys [show-relays? active-key identities identity-metadata relays
-                     refresh-relays-ts connected-info home-ux show-new-identity?
+                     refresh-relays-ts connected-info home-ux home-ux-new show-new-identity?
                      new-identity-error active-reply-context contact-lists
                      identity-active-contact metadata-cache]}]
   {:fx/type :stage
@@ -390,4 +389,5 @@
            :refresh-relays-ts refresh-relays-ts
            :connected-info connected-info
            :home-ux home-ux
+           :home-ux-new home-ux-new
            :metadata-cache metadata-cache}}})

@@ -11,7 +11,8 @@
     [me.untethr.nostr.timeline :as timeline]
     [me.untethr.nostr.domain :as domain]
     [me.untethr.nostr.parse :as parse]
-    [me.untethr.nostr.subscribe :as subscribe])
+    [me.untethr.nostr.subscribe :as subscribe]
+    [me.untethr.nostr.timeline-new :as timeline-new])
   (:import (me.untethr.nostr.timeline Timeline)
            (java.util.concurrent ScheduledExecutorService ScheduledFuture TimeUnit)))
 
@@ -40,7 +41,8 @@
 
 (defn consume-text-note [_db *state relay-url event-obj]
   (log/trace "text note: " relay-url (:id event-obj))
-  (timeline/dispatch-text-note! *state event-obj))
+  (timeline/dispatch-text-note! *state event-obj)
+  (timeline-new/dispatch-text-note! *state event-obj))
 
 (defn consume-recommend-server [db relay-url event-obj]
   (log/info "recommend server (TODO): " relay-url (:id event-obj))

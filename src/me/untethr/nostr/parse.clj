@@ -13,15 +13,9 @@
     (mapv (fn [[_ arg0 arg1 arg2]]
             (domain/->ParsedContact arg0 arg1 arg2)))))
 
-(defn parse-ptag-keys*
-  [{:keys [tags] :as _event-obj}]
+(defn parse-tags
+  [{:keys [tags] :as _event-obj} tag-str]
+  ;; note: result order should match tag order
   (->> tags
-    (filter #(= "p" (first %)))
-    (mapv (fn [[_ arg0 _arg1]] arg0))))
-
-(defn parse-etag-ids*
-  ;; result order should match tag order
-  [{:keys [tags] :as _event-obj}]
-  (->> tags
-    (filter #(= "e" (first %)))
-    (mapv (fn [[_ arg0 _arg1]] arg0))))
+    (filter #(= tag-str (first %)))
+    (mapv second)))

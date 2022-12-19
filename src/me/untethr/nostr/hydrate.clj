@@ -1,9 +1,11 @@
 (ns me.untethr.nostr.hydrate
-  (:require [me.untethr.nostr.util :as util]
-            [me.untethr.nostr.store :as store]
-            [me.untethr.nostr.timeline :as timeline]
-            [me.untethr.nostr.subscribe :as subscribe]
-            [clojure.tools.logging :as log])
+  (:require
+    [me.untethr.nostr.timeline-new :as timeline-new]
+    [me.untethr.nostr.util :as util]
+    [me.untethr.nostr.store :as store]
+    [me.untethr.nostr.timeline :as timeline]
+    [me.untethr.nostr.subscribe :as subscribe]
+    [clojure.tools.logging :as log])
   (:import (java.util.concurrent ScheduledExecutorService)))
 
 (defn- hydrate-contact-lists!
@@ -18,26 +20,31 @@
   (let [new-public-keys (mapv :public-key new-identities)
         identity-metadata (store/load-metadata db new-public-keys)
         identity-timeline (into {}
-                            (map #(vector % (timeline/new-timeline))) new-public-keys)]
+                            (map #(vector % (timeline/new-timeline))) new-public-keys)
+        identity-timeline-new (into {}
+                                (map #(vector % (timeline-new/new-timeline))) new-public-keys)]
     (swap! *state
       (fn [curr-state]
         (-> curr-state
           (update :identities into new-identities)
           (update :identity-metadata merge identity-metadata)
-          (update :identity-timeline merge identity-timeline))))
+          (update :identity-timeline merge identity-timeline)
+          (update :identity-timeline-new merge identity-timeline-new))))
     (let [contact-lists (hydrate-contact-lists! *state db new-identities)
           closure-public-keys (subscribe/whale-of-pubkeys* new-public-keys contact-lists)
           ;; todo also limit timeline events to something, some cardinality?
           ;; todo also load watermarks and include in new subscriptions
           timeline-data (store/load-timeline-events db closure-public-keys)]
       (when-let [first-identity-key (first new-public-keys)]
-        (timeline/update-active-timeline! *state first-identity-key))
+        (timeline/update-active-timeline! *state first-identity-key)
+        (timeline-new/update-active-timeline! *state first-identity-key))
       ;; todo consider transduce iterate over timeline-data and throttling
       ;;      dispatches via yielding of bg thread; this way we'd move
       ;;      on to subscriptions, allowing new stuff to come in sooner
       ;;      as we backfill
       (doseq [event-obj timeline-data]
-        (timeline/dispatch-text-note! *state event-obj)))
+        (timeline/dispatch-text-note! *state event-obj)
+        (timeline-new/dispatch-text-note! *state event-obj)))
     ;; note: use *all* identities to update subscriptions
     (let [{:keys [identities contact-lists]} @*state]
       (subscribe/overwrite-subscriptions! identities contact-lists))))
@@ -64,8 +71,11 @@
                   true
                   (update :identity-timeline #(apply dissoc % dead-public-keys-set))
                   true
+                  (update :identity-timeline-new #(apply dissoc % dead-public-keys-set))
+                  true
                   (update :contact-lists #(apply dissoc % dead-public-keys-set))))))]
       (timeline/update-active-timeline! *state new-active-key)
+      (timeline-new/update-active-timeline! *state new-active-key)
       ;; todo note: this means we are resubscribing -- def should optimize w/ some kind of watermark strat.
       (subscribe/overwrite-subscriptions! new-identities new-contact-lists))))
 

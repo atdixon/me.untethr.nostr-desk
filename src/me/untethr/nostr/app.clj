@@ -14,6 +14,7 @@
    [me.untethr.nostr.store :as store]
    [me.untethr.nostr.view :as view]
    [me.untethr.nostr.view-home :as view-home]
+   [me.untethr.nostr.view-home-new :as view-home-new]
    [me.untethr.nostr.event :as ev]
    [clojure.tools.logging :as log]
    [me.untethr.nostr.util :as util]
@@ -41,7 +42,11 @@
 (defonce home-ux
   (view-home/create-list-view *state db metadata-cache daemon-scheduled-executor))
 
+(defonce home-ux-new
+  (view-home-new/create-list-view *state db metadata-cache daemon-scheduled-executor))
+
 (swap! *state assoc :home-ux home-ux)
+(swap! *state assoc :home-ux-new home-ux-new)
 
 (defn- load-relays!
   []

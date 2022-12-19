@@ -32,9 +32,9 @@
   (let [seen? (conj seen? n)
         kids (mapv #(->note pruned-graph % seen?)
                (filter (complement seen?) (loom/predecessors pruned-graph n)))]
-    (if-let [{:keys [id pubkey created_at content etag-ids]} (loom-attr/attr pruned-graph n ::data)]
-      (domain/->UITextNote id pubkey content created_at etag-ids kids false)
-      (domain/->UITextNote n nil (format "<missing:%s>" n) nil [] kids true))))
+    (if-let [{:keys [id pubkey created_at content tags etag-ids ptag-ids]} (loom-attr/attr pruned-graph n ::data)]
+      (domain/->UITextNote id pubkey content created_at tags etag-ids ptag-ids kids false)
+      (domain/->UITextNote n nil (format "<missing:%s>" n) nil [] [] [] kids true))))
 
 (defn- build*
   [graph]
@@ -51,7 +51,7 @@
 
 (defn contribute!
   ^UITextNoteWrapper
-  [^UITextNoteWrapper wrapper {:keys [id created_at] :as event-obj} etag-ids]
+  [^UITextNoteWrapper wrapper {:keys [id created_at] :as event-obj} etag-ids ptag-ids]
   ;; note: we expect one of id or etag-ids to exist in the provided wrapper's
   ;;    :loom-graph (or the :loom-graph should be empty) and we expect the
   ;;    :loom-graph to be connected; this implies that our contributions here
@@ -59,8 +59,9 @@
   (let [graph (contribute!* (:loom-graph wrapper) id etag-ids)
         graph (loom-attr/add-attr graph id
                 ::data (-> event-obj
-                         (select-keys [:id :pubkey :created_at :content])
-                         (assoc :etag-ids etag-ids)))]
+                         (select-keys [:id :pubkey :created_at :content :tags])
+                         (assoc :etag-ids etag-ids)
+                         (assoc :ptag-ids ptag-ids)))]
     (assoc wrapper
       :loom-graph graph
       :note-count (count (loom/nodes graph))
@@ -68,6 +69,6 @@
       :root (build* graph))))
 
 (defn init!
-  ^UITextNoteWrapper [event-obj etag-ids]
+  ^UITextNoteWrapper [event-obj etag-ids ptag-ids]
   (let [x (domain/->UITextNoteWrapper (loom/digraph) true 0 -1 nil)]
-    (contribute! x event-obj etag-ids)))
+    (contribute! x event-obj etag-ids ptag-ids)))

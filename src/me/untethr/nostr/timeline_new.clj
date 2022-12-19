@@ -1,20 +1,16 @@
-(ns me.untethr.nostr.timeline
-  (:require
-    [cljfx.api :as fx]
-    [clojure.set :as set]
-    [clojure.tools.logging :as log]
-    [me.untethr.nostr.domain :as domain]
-    [me.untethr.nostr.parse :as parse]
-    [me.untethr.nostr.timeline-support :as timeline-support]
-    [me.untethr.nostr.util :as util]
-    [me.untethr.nostr.util-java :as util-java])
-  (:import (javafx.collections FXCollections ObservableList)
-           (java.util HashMap HashSet Set)
-           (me.untethr.nostr.domain UITextNote UITextNoteWrapper)
-           (javafx.scene.control ListView)
-           (javafx.collections.transformation FilteredList)))
+(ns me.untethr.nostr.timeline-new
+  (:require [cljfx.api :as fx]
+            [clojure.set :as set]
+            [me.untethr.nostr.domain :as domain]
+            [me.untethr.nostr.parse :as parse]
+            [me.untethr.nostr.util :as util]
+            [me.untethr.nostr.util-java :as util-java])
+  (:import (java.util HashMap HashSet)
+           (javafx.collections FXCollections ObservableList)
+           (javafx.collections.transformation FilteredList)
+           (javafx.scene.control ListView)))
 
-(defrecord Timeline
+(defrecord TimelineNew
   ;; these field values are only ever mutated on fx thread
   [^ObservableList adapted-list
    ^ObservableList observable-list ;; contains UITextNoteWrapper
@@ -37,7 +33,7 @@
                        filtered-list
                        ;; latest wrapper entries first:
                        (comparator #(< (:max-timestamp %2) (:max-timestamp %1))))]
-    (->Timeline
+    (->TimelineNew
       adapted-list
       observable-list
       (HashMap.)
@@ -65,8 +61,8 @@
 (defn dispatch-metadata-update!
   [*state {:keys [pubkey] :as _event-obj}]
   (fx/run-later
-    (let [{:keys [identity-timeline]} @*state]
-      (doseq [[_identity-pubkey timeline] identity-timeline]
+    (let [{:keys [identity-timeline-new]} @*state]
+      (doseq [[_identity-pubkey timeline] identity-timeline-new]
         (let [{:keys [^ObservableList observable-list
                       ^HashMap author-pubkey->item-id-set
                       ^HashMap item-id->index]} timeline]
@@ -82,61 +78,30 @@
   {:pre [(some? pubkey)]}
   ;; CONSIDER if is this too much usage of on-fx-thread - do we need to batch/debounce
   (fx/run-later
-    (let [{:keys [identity-timeline] :as _state-snap} @*state]
-      (doseq [[identity-pubkey timeline] identity-timeline]
+    (let [{:keys [identity-timeline-new] :as _state-snap} @*state]
+      (doseq [[identity-pubkey timeline] identity-timeline-new]
         (let [{:keys [^ObservableList observable-list
                       ^HashMap author-pubkey->item-id-set
                       ^HashMap item-id->index
                       ^HashSet item-ids]} timeline]
           (when-not (.contains item-ids id)
             (let [ptag-ids (parse/parse-tags event-obj "p")]
-              (when (or
-                      ;; our item-id->index map will have a key for any id that
-                      ;; has been referenced by any other accepted text note.
-                      ;; so we also want to accept those "missing" notes:
-                      (.containsKey item-id->index id)
-                      (accept-text-note? *state identity-pubkey ptag-ids event-obj))
+              (when (accept-text-note? *state identity-pubkey ptag-ids event-obj)
                 (.add item-ids id)
                 (.merge author-pubkey->item-id-set pubkey (HashSet. [id])
                   (util-java/->BiFunction (fn [^HashSet acc id] (doto acc (.addAll ^Set id)))))
-                (let [etag-ids (parse/parse-tags event-obj "e") ;; order matters
-                      id-closure (cons id etag-ids)
-                      existing-idx (first (keep #(.get item-id->index %) id-closure))]
-                  (if (some? existing-idx)
-                    (let [curr-wrapper (.get observable-list existing-idx)
-                          new-wrapper (timeline-support/contribute!
-                                        curr-wrapper event-obj etag-ids ptag-ids)]
-                      (doseq [x id-closure]
-                        (.put item-id->index x existing-idx))
-                      (.set observable-list existing-idx new-wrapper))
-                    (let [init-idx (.size observable-list)
-                          init-wrapper (timeline-support/init! event-obj etag-ids ptag-ids)]
-                      (doseq [x id-closure]
-                        (.put item-id->index x init-idx))
-                      (.add observable-list init-wrapper))))))))))))
-
-(defn toggle!
-  [*state id]
-  (let [{:keys [active-key identity-timeline]} @*state
-        ^Timeline active-timeline (get identity-timeline active-key)
-        {:keys [^ObservableList observable-list
-                ^HashMap item-id->index]} active-timeline]
-    (fx/run-later
-      (try
-        (when-let [item-index (.get item-id->index id)]
-          (when-let [^UITextNoteWrapper wrapper (.get observable-list item-index)]
-            (let [new-wrapper (update wrapper :expanded? #(not %))]
-              (.set observable-list item-index new-wrapper))))
-        (catch Exception e
-          (log/error 'toggle! e))))))
+                (let [init-idx (.size observable-list)
+                      init-note (domain/->UITextNoteNew event-obj created_at)]
+                  (.put item-id->index id init-idx)
+                  (.add observable-list init-note))))))))))
 
 (defn update-active-timeline!
   [*state public-key] ;; note public-key may be nil!
   (fx/run-later
     (swap! *state
-      (fn [{:keys [^ListView home-ux identity-timeline] :as curr-state}]
-        (.setItems home-ux
+      (fn [{:keys [^ListView home-ux-new identity-timeline-new] :as curr-state}]
+        (.setItems home-ux-new
           ^ObservableList (or
-                            (:adapted-list (get identity-timeline public-key))
+                            (:adapted-list (get identity-timeline-new public-key))
                             (FXCollections/emptyObservableList)))
         (assoc curr-state :active-key public-key)))))

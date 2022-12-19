@@ -16,7 +16,9 @@
    ;;   must be done w/in mutex--ie on fx thread!
    :active-key nil
    :home-ux nil
+   :home-ux-new nil
    :identity-timeline {} ;; pubkey -> Timeline
+   :identity-timeline-new {} ;; pubkey -> TimelineNew
    })
 
 ;; --
@@ -37,10 +39,13 @@
   [name about picture-url nip05-id created-at])
 
 (defrecord UITextNote
-  [id pubkey #_... content timestamp e-tags children missing?])
+  [id pubkey #_... content timestamp tags e-tags p-tags children missing?])
 
 (defrecord UITextNoteWrapper
   [loom-graph expanded? note-count max-timestamp ^UITextNote root])
+
+(defrecord UITextNoteNew
+  [event-obj max-timestamp])
 
 (defrecord UIReplyContext
   [root-event-id event-id])

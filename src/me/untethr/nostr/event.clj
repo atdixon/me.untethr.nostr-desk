@@ -8,6 +8,7 @@
     [me.untethr.nostr.relay-conn :as relay-conn]
     [me.untethr.nostr.store :as store]
     [me.untethr.nostr.timeline :as timeline]
+    [me.untethr.nostr.timeline-new :as timeline-new]
     [me.untethr.nostr.x.crypt :as crypt]
     [me.untethr.nostr.hydrate :as hydrate]
     [me.untethr.nostr.publish :as publish]
@@ -26,7 +27,8 @@
   [{:keys [public-key]}]
   [[:bg
     (fn [*state _db _exec _dispatch!]
-      (timeline/update-active-timeline! *state public-key))]])
+      (timeline/update-active-timeline! *state public-key)
+      (timeline-new/update-active-timeline! *state public-key))]])
 
 (defn show-new-identity-effect
   [show-new-identity?]

@@ -176,9 +176,9 @@
 
 .ndesk-contact-list {
     -fx-background: white; /* not -fx-background-color b/c scroll-pane */
-    -fx-pref-width: 275px;
-    -fx-min-width: 275px;
-    -fx-max-width: 275px;
+    /*-fx-pref-width: 275px;*/
+    /*-fx-min-width: 275px;*/
+    /*-fx-max-width: 275px;*/
 }
 
 .ndesk-contact-card {

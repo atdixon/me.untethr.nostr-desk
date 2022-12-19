@@ -107,11 +107,11 @@
     (.appendText n s)))
 
 (defn append-hyperlink!
-  [^GenericStyledArea n url]
+  [^GenericStyledArea n text url]
   (when (not-empty url)
     (.append n
       (ReadOnlyStyledDocument/fromSegment
-        (->HyperlinkSeg url url)
+        (->HyperlinkSeg text url)
         nil ;; paragraph style
         nil ;; text style
         seg-ops*))))
