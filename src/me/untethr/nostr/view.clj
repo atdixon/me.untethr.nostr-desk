@@ -246,7 +246,7 @@
                           :home-ux home-ux-new
                           :can-publish? can-publish?
                           :active-reply-context active-reply-context}
-            "Home (old)" {:fx/type main-pane
+            #_#_"Home (old)" {:fx/type main-pane
                     :home-ux home-ux
                     :can-publish? can-publish?
                     :active-reply-context active-reply-context}

@@ -8,6 +8,7 @@
             [me.untethr.nostr.metadata :as metadata]
             [me.untethr.nostr.rich-text :as rich-text]
             [me.untethr.nostr.store :as store]
+            [me.untethr.nostr.style :as style :refer [BORDER|]]
             [me.untethr.nostr.util :as util]
             [me.untethr.nostr.util-domain :as util-domain]
             [me.untethr.nostr.util-fx :as util-fx]
@@ -27,6 +28,7 @@
 
 (defn avatar [{:keys [picture-url]}]
   {:fx/type :image-view
+   :style (BORDER|)
    :image (cache/get* avatar/image-cache [picture-url avatar-dim])})
 
 (defn url-summarize [url]
@@ -81,9 +83,9 @@
 (defn create-content-node*
   [content tags metadata-cache]
   (let [use-content (-> content
-                      (str/replace #"(\r\n)+" "\r\n")
-                      (str/replace #"\n+" "\n")
-                      (str/replace #"\r+" "r"))
+                      (str/replace #"(\r\n){2,}" "\r\n")
+                      (str/replace #"\n{2,}" "\n")
+                      (str/replace #"\r{2,}" "\r"))
         ^GenericStyledArea x (rich-text/create*)]
     (util-fx/add-style-class! x "ndesk-timeline-item-content")
     (HBox/setHgrow x Priority/ALWAYS)
@@ -232,7 +234,9 @@
               :style-class "ndesk-timeline-item-photo"
               :text pubkey-for-avatar})
      :center {:fx/type :border-pane
+              :style (BORDER| :green)
               :top {:fx/type :border-pane
+                    :style (BORDER| :purple)
                     :border-pane/margin (Insets. 0.0 5.0 0.0 5.0)
                     :left {:fx/type :h-box
                            :children [{:fx/type :label
@@ -268,7 +272,11 @@
                                                (fn [_]
                                                  (swap! *state assoc :active-reply-context
                                                    (domain/->UIReplyContext
-                                                     (:id event-obj) item-id)))}]}]}}}))
+                                                     (:id event-obj) item-id)))}]}]}}
+     :bottom {:fx/type :h-box
+              :style (BORDER|)
+              :children [{:fx/type :label :text "placeholder"}]
+              }}))
 
 (defn timeline-item*
   [{:keys [^UITextNoteNew text-note-new *state db metadata-cache executor]}]

@@ -88,7 +88,11 @@
 
 (defn create-content-node*
   [content tags metadata-cache]
-  (let [^GenericStyledArea x (rich-text/create*)]
+  (let [use-content (-> content
+                      (str/replace #"(\r\n){2,}" "\r\n")
+                      (str/replace #"\n{2,}" "\n")
+                      (str/replace #"\r{2,}" "\r"))
+        ^GenericStyledArea x (rich-text/create*)]
     (util-fx/add-style-class! x "ndesk-timeline-item-content")
     (HBox/setHgrow x Priority/ALWAYS)
     (.setWrapText x true)
@@ -103,17 +107,17 @@
           (.consume e)
           (when-let [p (.getParent x)]
             (.fireEvent p (.copyFor e (.getSource e) p))))))
-    (let [found (links/detect content)]
+    (let [found (links/detect use-content)]
       (loop [cursor 0 [[a b] :as found] found]
         (if a
-          (let [sub-content (subs content cursor a)
-                link-url (subs content a b)]
+          (let [sub-content (subs use-content cursor a)
+                link-url (subs use-content a b)]
             (append-content-with-nostr-tags!* x sub-content tags metadata-cache)
             (rich-text/append-hyperlink! x
               (url-summarize link-url) link-url)
             (recur b (next found)))
           (append-content-with-nostr-tags!*
-            x (subs content cursor (count content)) tags metadata-cache))))
+            x (subs use-content cursor (count use-content)) tags metadata-cache))))
     ;; shall we not argue with this? there mere presence of this listener seems
     ;; to fix height being left rendered too short:
     (.addListener (.totalHeightEstimateProperty x)
