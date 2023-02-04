@@ -100,6 +100,10 @@
   (fx/run-later
     (swap! *state
       (fn [{:keys [^ListView home-ux-new identity-timeline-new] :as curr-state}]
+        ;; oops this is a misuse here of swap! - we probably shouldn't setItems here
+        ;; *within* the swap! *state b/c we can get invoked multiple times by
+        ;; swap!. should move this .setItems outside of swap! really and just
+        ;; get the value by derefing the state.
         (.setItems home-ux-new
           ^ObservableList (or
                             (:adapted-list (get identity-timeline-new public-key))
