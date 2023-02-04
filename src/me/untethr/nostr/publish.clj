@@ -33,7 +33,7 @@
     {:id event-id
      :pubkey pubkey
      :created_at created_at
-     :kind 1
+     :kind kind
      :tags tags
      :content content
      :sig sig}))
