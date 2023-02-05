@@ -1,4 +1,4 @@
-Core development moved to [https://github.com/alemmens/monstr](https://github.com/alemmens/monstr)
+**NOTE:** Core development moved to [https://github.com/alemmens/monstr](https://github.com/alemmens/monstr)
 
 # me.untethr.nostr-desk
 
